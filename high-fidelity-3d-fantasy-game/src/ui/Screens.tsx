@@ -203,8 +203,9 @@ export function DeathScreen() {
   );
 }
 
-// ----------------------------------------------------------------- Victory
-export function VictoryScreen({ runes, onContinue }: { runes: number; onContinue: () => void }) {
+// ----------------------------------------------------------------- Victory — now dynamic: shows whichever boss was actually felled
+export function VictoryScreen({ runes, name, onContinue }: { runes: number; name: string; onContinue: () => void }) {
+  const isFinal = name.toUpperCase().includes("HOLLOW") || name.toUpperCase().includes("ALDRIC");
   return (
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 46%, rgba(90,52,10,0.42) 0%, rgba(4,3,3,0.92) 68%)" }} />
@@ -217,19 +218,21 @@ export function VictoryScreen({ runes, onContinue }: { runes: number; onContinue
           className="anim-fade-up font-title mt-5 text-[clamp(26px,5.2vw,74px)] tracking-[0.28em] gold-text glow-gold"
           style={{ animationDelay: "0.3s" }}
         >
-          GREAT ENEMY FELLED
+          {isFinal ? "THE CROWN IS BROKEN" : "GREAT ENEMY FELLED"}
         </div>
         <div className="anim-fade-up mt-4 font-title text-[clamp(11px,1.5vw,18px)] tracking-[0.5em]" style={{ color: "rgba(226,196,150,0.7)", animationDelay: "0.9s" }}>
-          MALENKAR, THE SUNDERED FLAME
+          {name.toUpperCase()}
         </div>
         <div className="anim-fade-up mt-8 text-[clamp(13px,1.1vw,17px)] italic" style={{ color: "rgba(206,188,158,0.6)", animationDelay: "1.4s" }}>
-          The flame is yours. The Ashveil parts, and the Tree turns its light upon you.
+          {isFinal
+            ? "The flame is whole, and silent. The Ashveil is yours to wander, Ashbearer — scatter it, or keep it."
+            : "The flame is yours. The Ashveil parts, and the Tree turns its light upon you."}
         </div>
         <div className="anim-fade-up mt-6 font-title text-[22px] tracking-[0.2em] gold-text" style={{ animationDelay: "1.8s" }}>
           {runes.toLocaleString()} RUNES
         </div>
         <div className="anim-fade-up mx-auto mt-8 w-[300px]" style={{ animationDelay: "2.2s" }}>
-          <MenuButton primary label="WANDER ON" onClick={onContinue} />
+          <MenuButton primary label={isFinal ? "WANDER THE ASHVEIL" : "WANDER ON"} onClick={onContinue} />
         </div>
       </div>
     </div>

@@ -22,6 +22,7 @@ const EMPTY: HudState = {
   dead: false,
   victory: false,
   victoryShown: false,
+  victoryName: "MALENKAR, THE SUNDERED FLAME",
   paused: false,
   started: false,
   area: "Kingsfall Keep",
@@ -142,7 +143,7 @@ export default function App() {
 
       {hud.started && hud.victoryShown && (
         <div className="absolute inset-0 z-30">
-          <VictoryScreen runes={hud.runes} onContinue={continueAfterVictory} />
+          <VictoryScreen runes={hud.runes} name={hud.victoryName} onContinue={continueAfterVictory} />
         </div>
       )}
 

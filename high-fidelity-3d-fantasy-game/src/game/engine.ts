@@ -268,6 +268,7 @@ export interface HudState {
   dead: boolean;
   victory: boolean;
   victoryShown: boolean;
+  victoryName: string;
   paused: boolean;
   started: boolean;
   area: string;
@@ -385,6 +386,7 @@ export class Game {
   dead = false;
   victory = false;
   victoryShown = false;
+  victoryName = "MALENKAR, THE SUNDERED FLAME";
   private victoryDismissed = false;
   private victoryAt = -999;
   private respawnTimer = 0;
@@ -1225,6 +1227,7 @@ export class Game {
       // ---- Hollow Crown — the real ending ----
       if (npc.bossRole === "hollowCrown") {
         this.victory = true;
+        this.victoryName = npc.name;
         this.victoryAt = this.time;
         this.questStage = 9;
         this.syncBeacon();
@@ -1464,7 +1467,7 @@ export class Game {
     }
 
     // pull the camera in tight inside the keep so it doesn't clip the walls
-    const indoors = insideKeep(p.pos.x, p.pos.z);
+    const indoors = insideKeep(p.pos.x, p.pos.z, p.pos.y);
     const wanted = indoors ? Math.min(this.camTargetDist, 4.3) : this.camTargetDist;
     this.camDist += (wanted - this.camDist) * (instant ? 1 : Math.min(1, dt * 6));
 
@@ -1843,6 +1846,7 @@ export class Game {
       dead: this.dead,
       victory: this.victory,
       victoryShown: this.victoryShown,
+      victoryName: this.victoryName,
       paused: this.paused,
       started: this.started,
       area:

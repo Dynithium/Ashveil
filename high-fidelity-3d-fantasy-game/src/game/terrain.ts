@@ -165,6 +165,16 @@ export interface Platform {
 
 export const platforms: Platform[] = [];
 
+/**
+ * Clears the global platform list. Must be called whenever a new World is
+ * constructed so hot-reload / Game recreation doesn't double-stack colliders.
+ * The authoritative storage is World.platforms (instance-owned); this global
+ * is kept as a shared view for groundAt() callers that don't have a World ref.
+ */
+export function clearPlatforms() {
+  platforms.length = 0;
+}
+
 export function addPlatform(p: Platform) {
   platforms.push(p);
   return p;
@@ -198,8 +208,9 @@ export function groundAt(x: number, z: number, feetY: number, step = 0.9): numbe
   return best;
 }
 
-/** True when (x,z,y) sits inside the keep's interior column. */
-export function insideKeep(x: number, z: number): boolean {
+/** True when (x,z,y) sits inside the keep's interior column. Y-aware so flight high above doesn't trigger indoor camera. */
+export function insideKeep(x: number, z: number, y?: number): boolean {
+  if (y !== undefined && y > 32) return false;
   return x > -11 && x < 11 && z > 108.6 && z < 131.4;
 }
 

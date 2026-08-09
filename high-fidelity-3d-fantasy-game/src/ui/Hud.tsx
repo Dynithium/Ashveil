@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { WORLD } from "../game/terrain";
 import type { HudState } from "../game/engine";
 
 const WEAPON_LABEL: Record<string, string> = {
@@ -96,7 +97,7 @@ const POPUP_STYLE: Record<string, { color: string; size: number; weight: number;
 };
 
 function MiniMap({ s }: { s: HudState }) {
-  const R = 205;
+  const R = WORLD.wall; // auto-sync with actual world radius (was stale 205)
   const cx = 74;
   const cy = 74;
   const sc = 60 / R;
@@ -222,7 +223,10 @@ export function Hud({ s }: { s: HudState }) {
           <Bar value={s.fp} max={s.maxFp} width={224} height={11} color="linear-gradient(180deg,#7fc9ee,#2b6f9c 60%,#1b4a6b)" glow="rgba(90,180,240,0.5)" delay={false} />
         </div>
         <div className="ml-[10px] flex items-center gap-2">
-          <Bar value={s.stamina} max={s.maxStamina} width={268} height={11} color="linear-gradient(180deg,#a9d97e,#4d8a3a 60%,#2f5e26)" glow="rgba(140,220,110,0.45)" delay={false} />
+          <div className={s.stamina / s.maxStamina < 0.22 ? "anim-pulse-slow" : ""}>
+            <Bar value={s.stamina} max={s.maxStamina} width={268} height={11} color={s.stamina / s.maxStamina < 0.22 ? "linear-gradient(180deg,#ff8a6a,#c03a20 60%,#7a150f)" : "linear-gradient(180deg,#a9d97e,#4d8a3a 60%,#2f5e26)"} glow={s.stamina / s.maxStamina < 0.22 ? "rgba(255,90,40,0.7)" : "rgba(140,220,110,0.45)"} delay={false} />
+          </div>
+          {s.stamina / s.maxStamina < 0.22 && <span className="font-title text-[9px] tracking-[0.2em] anim-pulse-slow" style={{ color: "rgba(255,120,90,0.85)" }}>EXHAUSTED</span>}
         </div>
       </div>
 

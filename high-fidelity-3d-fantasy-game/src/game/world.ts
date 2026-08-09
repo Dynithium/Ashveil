@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BIOMES, WORLD, addPlatform, biomeWeights, fbm, makeRng, slopeAt, smoothstep, terrainHeight, terrainNormal } from "./terrain";
+import { BIOMES, WORLD, addPlatform, biomeWeights, clearPlatforms, fbm, makeRng, platforms as globalPlatforms, slopeAt, smoothstep, terrainHeight, terrainNormal, type Platform } from "./terrain";
 
 // ---------------------------------------------------------------------------
 // ASHVEIL — world construction: sky, land, the Sundered Tree, ruins, flora
@@ -205,7 +205,17 @@ export class World {
   private fogColorAsh = new THREE.Color(0x3a342c);
   private fogColorEmber = new THREE.Color(0x33201a);
 
+  // Instance-owned platform list — authoritative, global is just a shared view for groundAt() callers
+  platforms: Platform[] = globalPlatforms;
+
   constructor() {
+    // Reset global platform list to avoid double-stacking on hot-reload / Game recreation
+    clearPlatforms();
+    this.colliders = [];
+    this.graceSites = [];
+    this.loreStones = [];
+    // Re-bind instance view to the cleared global (same reference)
+    this.platforms = globalPlatforms;
     this.scene.fog = new THREE.FogExp2(0x2a2018, 0.0048);
     this.buildSky();
     this.buildLights();

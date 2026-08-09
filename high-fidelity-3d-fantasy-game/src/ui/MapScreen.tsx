@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { HudState } from "../game/engine";
+import { WORLD } from "../game/terrain";
 
-// World spans roughly [-205, 205] on both axes. Map to a 0..1 square.
-const WORLD_R = 205;
+// World now spans [-WALL, WALL] — sync to actual constant (was stale 205)
+const WORLD_R = WORLD.wall;
 const toPct = (v: number) => ((v + WORLD_R) / (WORLD_R * 2)) * 100;
 
 export function MapScreen({

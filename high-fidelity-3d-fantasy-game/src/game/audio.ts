@@ -144,10 +144,11 @@ export class AudioEngine {
 
   private startMusic() {
     const step = () => {
-      if (!this.ctx) return;
+      if (!this.ctx || !this.started) return;
       this.playChord(this.chords[this.chordIx % this.chords.length]);
       this.chordIx++;
       if (this.intensity > 0.5) this.playBossPulse();
+      if (!this.started) return;
       this.musicTimer = window.setTimeout(step, this.intensity > 0.5 ? 4200 : 9200);
     };
     step();
@@ -515,10 +516,15 @@ export class AudioEngine {
   }
 
   dispose() {
-    if (this.musicTimer) clearTimeout(this.musicTimer);
-    this.ctx?.close();
+    if (this.musicTimer) {
+      clearTimeout(this.musicTimer);
+      this.musicTimer = undefined;
+    }
+    this.started = false; // prevent further scheduling in startMusic
+    try {
+      this.ctx?.close();
+    } catch {}
     this.ctx = null;
-    this.started = false;
   }
 }
 
