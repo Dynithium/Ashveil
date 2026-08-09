@@ -14,15 +14,20 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
-    // Allow any preview host like https://5173-xxx.e2b.app
-    allowedHosts: true as any,
+    cors: true,
+    // Accept any e2b preview host like https://5173-xxx.e2b.app
+    allowedHosts: [".e2b.app", ".amazonaws.com", "localhost"] as any,
     headers: {
       "X-Frame-Options": "ALLOWALL",
+    },
+    hmr: {
+      clientPort: 443,
     },
   },
   preview: {
     host: "0.0.0.0",
     port: 5173,
+    cors: true,
   },
   resolve: {
     alias: {
