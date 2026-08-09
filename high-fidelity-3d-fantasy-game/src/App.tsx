@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Game, type HudState } from "./game/engine";
+import { Game, type HudState, type QualityLevel } from "./game/engine";
 import { audio } from "./game/audio";
 import { Hud } from "./ui/Hud";
 import { DeathScreen, PauseScreen, TitleScreen, VictoryScreen } from "./ui/Screens";
@@ -23,6 +23,7 @@ const EMPTY: HudState = {
   victory: false,
   victoryShown: false,
   victoryName: "MALENKAR, THE SUNDERED FLAME",
+  quality: (typeof localStorage !== "undefined" && (localStorage.getItem("ashveil_quality") as any)) || "medium",
   paused: false,
   started: false,
   area: "Kingsfall Keep",
@@ -125,6 +126,9 @@ export default function App() {
 
   const closeMap = useCallback(() => gameRef.current?.toggleMap(), []);
   const travel = useCallback((idx: number) => gameRef.current?.fastTravel(idx), []);
+  const setQuality = useCallback((q: QualityLevel) => {
+    gameRef.current?.setQuality(q);
+  }, []);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
@@ -153,13 +157,13 @@ export default function App() {
 
       {hud.started && hud.paused && !hud.victoryShown && (
         <div className="absolute inset-0 z-40">
-          <PauseScreen onResume={resume} onQuit={quit} audioOn={audioOn} onToggleAudio={toggleAudio} runes={hud.runes} />
+          <PauseScreen onResume={resume} onQuit={quit} audioOn={audioOn} onToggleAudio={toggleAudio} runes={hud.runes} quality={hud.quality} onSetQuality={setQuality} />
         </div>
       )}
 
       {!hud.started && (
         <div className="absolute inset-0 z-30">
-          <TitleScreen onStart={start} audioOn={audioOn} onToggleAudio={toggleAudio} />
+          <TitleScreen onStart={start} audioOn={audioOn} onToggleAudio={toggleAudio} quality={hud.quality} onSetQuality={setQuality} />
         </div>
       )}
 

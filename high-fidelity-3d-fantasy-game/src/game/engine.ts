@@ -160,6 +160,98 @@ const LORE_STONES: { title: string; body: string[] }[] = [
   ] },
 ];
 
+
+export type QualityLevel = "ultralow" | "low" | "medium" | "high" | "xhigh";
+
+export const QUALITY_PRESETS: Record<QualityLevel, {
+  label: string;
+  short: string;
+  desc: string;
+  pixelRatio: number;
+  shadowSize: number;
+  bloom: number;
+  adaptive: boolean;
+  particles: number;
+  embers: number;
+  grass: boolean;
+  mist: boolean;
+  shadows: boolean;
+}> = {
+  ultralow: {
+    label: "ULTRA LOW",
+    short: "POTATO",
+    desc: "Max FPS · no shadows · low res · for netbooks",
+    pixelRatio: 0.55,
+    shadowSize: 256,
+    bloom: 0.0,
+    adaptive: false,
+    particles: 0.35,
+    embers: 0.2,
+    grass: false,
+    mist: false,
+    shadows: false,
+  },
+  low: {
+    label: "LOW",
+    short: "LUMEN",
+    desc: "High FPS · soft shadows",
+    pixelRatio: 0.8,
+    shadowSize: 512,
+    bloom: 0.18,
+    adaptive: true,
+    particles: 0.6,
+    embers: 0.5,
+    grass: true,
+    mist: false,
+    shadows: true,
+  },
+  medium: {
+    label: "MEDIUM",
+    short: "EMBER",
+    desc: "Balanced · recommended",
+    pixelRatio: 1.2,
+    shadowSize: 1024,
+    bloom: 0.38,
+    adaptive: true,
+    particles: 0.85,
+    embers: 0.8,
+    grass: true,
+    mist: true,
+    shadows: true,
+  },
+  high: {
+    label: "HIGH",
+    short: "FLAME",
+    desc: "Crisp · PC gaming",
+    pixelRatio: 1.5,
+    shadowSize: 1536,
+    bloom: 0.46,
+    adaptive: true,
+    particles: 1.0,
+    embers: 1.0,
+    grass: true,
+    mist: true,
+    shadows: true,
+  },
+  xhigh: {
+    label: "X-HIGH",
+    short: "SUNDERED",
+    desc: "Cinematic · melts GPU",
+    pixelRatio: 2.0,
+    shadowSize: 2048,
+    bloom: 0.58,
+    adaptive: false,
+    particles: 1.2,
+    embers: 1.2,
+    grass: true,
+    mist: true,
+    shadows: true,
+  },
+};
+
+export const QUALITY_ORDER: QualityLevel[] = ["ultralow","low","medium","high","xhigh"];
+
+
 export interface DialogueState {
   speaker: string;
   lines: string[];
@@ -269,6 +361,7 @@ export interface HudState {
   victory: boolean;
   victoryShown: boolean;
   victoryName: string;
+  quality: QualityLevel;
   paused: boolean;
   started: boolean;
   area: string;
@@ -360,6 +453,8 @@ export class Game {
   private basePixelRatio = 1.5;
   private quality = 1;
   private qualityCooldown = 3;
+  qualityLevel: QualityLevel = (typeof localStorage !== "undefined" && localStorage.getItem("ashveil_quality") as QualityLevel) || "medium";
+  private qualityManual = typeof localStorage !== "undefined" && !!localStorage.getItem("ashveil_quality");
   private lightPool: THREE.PointLight[] = [];
   private lightBusy: boolean[] = [];
   effigies: NPC[] = [];
@@ -470,6 +565,25 @@ export class Game {
     this.camYaw = Math.PI;
     this.updateCamera(0, true);
     this.renderer.compile(scene, this.camera);
+    // apply saved quality (no banner at boot)
+    try {
+      const q = (typeof localStorage !== "undefined" && localStorage.getItem("ashveil_quality") as any) || "medium";
+      if ((QUALITY_PRESETS as any)[q]) this.qualityLevel = q as any;
+      const preset = QUALITY_PRESETS[this.qualityLevel];
+      if (preset) {
+        this.basePixelRatio = Math.min(window.devicePixelRatio, preset.pixelRatio);
+        const pr = this.basePixelRatio * this.quality;
+        this.renderer.setPixelRatio(pr);
+        this.composer?.setPixelRatio(pr);
+        if (this.world.sun) {
+          this.world.sun.shadow.mapSize.set(preset.shadowSize, preset.shadowSize);
+          this.world.sun.castShadow = preset.shadows;
+          this.renderer.shadowMap.enabled = preset.shadows;
+        }
+        if (this.bloom) this.bloom.strength = preset.bloom;
+      }
+    } catch {}
+
   }
 
   // ------------------------------------------------------------------ setup
@@ -829,7 +943,7 @@ export class Game {
     if (k === "q") this.castBuffer = 0.22;
     if (k === "r") this.healBuffer = 0.22;
     if (k === "f") this.interactBuffer = 0.3;
-    if (k === "tab") { e.preventDefault(); this.toggleLock(); }
+    if (k === "tab" || k === "t" || k === "v") { e.preventDefault(); if (this.started && !this.paused && !this.dead && !this.victoryShown && (document as any).pointerLockElement !== this.renderer.domElement) { this.requestPointerLock(); } if (this.paused) { this.setPaused(false); window.setTimeout(() => this.toggleLock(true), 80); } else { this.toggleLock(true); } }
     if (k === "escape") { if (this.mapOpen) this.toggleMap(); else this.setPaused(!this.paused); }
     if (k === "h") this.toggleGodMode();
     if (k === "m") this.toggleMap();
@@ -876,6 +990,36 @@ export class Game {
       audio.ui("click");
       this.showBanner("GOD MODE — DISABLED", "mortal once more");
     }
+    this.emit();
+  }
+
+  /** Apply a quality preset live — updates DPR, shadow map, bloom, and toggles expensive VFX */
+  setQuality(level: QualityLevel) {
+    const preset = QUALITY_PRESETS[level];
+    if (!preset) return;
+    this.qualityLevel = level;
+    this.qualityManual = true;
+    try { localStorage.setItem("ashveil_quality", level); } catch {}
+    this.basePixelRatio = Math.min(window.devicePixelRatio, preset.pixelRatio);
+    const pr = this.basePixelRatio * this.quality;
+    try {
+      this.renderer.setPixelRatio(pr);
+      if (this.composer) this.composer.setPixelRatio(pr);
+      if (this.world.sun) {
+        this.world.sun.shadow.mapSize.set(preset.shadowSize, preset.shadowSize);
+        if (this.world.sun.shadow.map) {
+          this.world.sun.shadow.map.dispose();
+          (this.world.sun.shadow as any).map = null;
+        }
+        this.world.sun.castShadow = preset.shadows;
+        this.renderer.shadowMap.enabled = preset.shadows;
+      }
+      if (this.bloom) this.bloom.strength = preset.bloom;
+      (this.world as any)._qualityShadows = preset.shadows;
+      (this.world as any)._qualityGrass = preset.grass;
+    } catch {}
+    audio.ui("click");
+    this.showBanner(preset.label, preset.desc);
     this.emit();
   }
   private onKeyUp = (e: KeyboardEvent) => { this.keys[e.key.toLowerCase()] = false; };
@@ -977,25 +1121,60 @@ export class Game {
   }
 
   // ------------------------------------------------------------- game utils
-  private toggleLock() {
-    if (this.lockTarget) { this.lockTarget = null; audio.ui("hover"); return; }
+  private toggleLock(forceLock = false) {
+    if (this.lockTarget && !forceLock) { this.lockTarget = null; audio.ui("hover"); this.emit(); return; }
+
     let best: NPC | null = null;
     let bestScore = -Infinity;
     const fwd = new THREE.Vector3(Math.sin(this.camYaw), 0, Math.cos(this.camYaw));
     const to = new THREE.Vector3();
+
+    // Pass 1: in front, within 42m, scored by dot + distance — normal lock
     for (const e of this.enemies) {
       if (e.dead) continue;
       to.subVectors(e.pos, this.player.pos).setY(0);
       const d = to.length();
       if (d > 42) continue;
+      if (d < 0.5) continue;
       to.normalize();
       const dot = to.dot(fwd);
-      if (dot < 0.1) continue;
-      const score = dot * 2.4 - d * 0.05;
+      if (dot < 0.05) continue;
+      const score = dot * 2.8 - d * 0.06 + (e.kind === "boss" ? 0.5 : 0);
       if (score > bestScore) { bestScore = score; best = e; }
     }
+
+    // Pass 2: if nothing in front, grab nearest within 30m regardless of facing — works without pointer lock
+    if (!best) {
+      let nearestD = 999;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        to.subVectors(e.pos, this.player.pos).setY(0);
+        const d = to.length();
+        if (d > 30) continue;
+        if (d < nearestD) { nearestD = d; best = e; }
+      }
+    }
+
+    // Pass 3: if still nothing, grab any aggro'd boss within 80m
+    if (!best) {
+      for (const e of this.enemies) {
+        if (e.dead || e.kind !== "boss") continue;
+        if (!e.aggro) continue;
+        to.subVectors(e.pos, this.player.pos).setY(0);
+        const d = to.length();
+        if (d < 80) { best = e; break; }
+      }
+    }
+
     this.lockTarget = best;
-    if (best) audio.ui("click");
+    if (best) {
+      audio.ui("click");
+      this.showBanner(best.name, "Locked — press TAB/T/V to unlock");
+    } else {
+      audio.ui("hover");
+      if (forceLock) this.showBanner("NO TARGET", "No enemies nearby");
+    }
+    this.emit();
   }
 
   showBanner(title: string, sub?: string) {
@@ -1578,17 +1757,21 @@ export class Game {
       this.fpsAcc = 0;
       this.fpsCount = 0;
       // ---- adaptive resolution: protect the frame budget automatically ----
-      this.qualityCooldown -= 0.5;
-      if (this.qualityCooldown <= 0) {
-        let q = this.quality;
-        if (this.fps < 46 && q > 0.62) q = Math.max(0.62, q - 0.18);
-        else if (this.fps > 58 && q < 1) q = Math.min(1, q + 0.09);
-        if (Math.abs(q - this.quality) > 0.01) {
-          this.quality = q;
-          const pr = this.basePixelRatio * q;
-          this.renderer.setPixelRatio(pr);
-          this.composer.setPixelRatio(pr);
-          this.qualityCooldown = 2.5;
+      const preset = QUALITY_PRESETS[this.qualityLevel];
+      const allowAdaptive = preset ? preset.adaptive : true;
+      if (allowAdaptive) {
+        this.qualityCooldown -= 0.5;
+        if (this.qualityCooldown <= 0) {
+          let q = this.quality;
+          if (this.fps < 46 && q > 0.5) q = Math.max(0.5, q - 0.18);
+          else if (this.fps > 58 && q < 1.15) q = Math.min(1.15, q + 0.09);
+          if (Math.abs(q - this.quality) > 0.01) {
+            this.quality = q;
+            const pr = this.basePixelRatio * q;
+            this.renderer.setPixelRatio(pr);
+            this.composer.setPixelRatio(pr);
+            this.qualityCooldown = 2.5;
+          }
         }
       }
     }
@@ -1847,6 +2030,7 @@ export class Game {
       victory: this.victory,
       victoryShown: this.victoryShown,
       victoryName: this.victoryName,
+      quality: this.qualityLevel,
       paused: this.paused,
       started: this.started,
       area:

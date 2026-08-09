@@ -311,10 +311,10 @@ export function Hud({ s }: { s: HudState }) {
           {s.area.toUpperCase()}
         </div>
         <div className="mt-1 font-title text-[9px] tracking-[0.28em]" style={{ color: "rgba(180,160,130,0.28)" }}>
-          {WEAPON_LABEL[s.weapon] ?? s.weapon} · {s.fps} FPS
+          {WEAPON_LABEL[s.weapon] ?? s.weapon} · {s.fps} FPS · {s.quality?.toUpperCase() || "MEDIUM"}
         </div>
         <div className="mt-[2px] font-title text-[9px] tracking-[0.26em]" style={{ color: "rgba(226,196,140,0.4)" }}>
-          M — MAP &amp; TRAVEL
+          M — MAP & TRAVEL · ESC — PAUSE · QUALITY IN PAUSE · TAB/T/V LOCK EVEN WITHOUT MOUSE
         </div>
       </div>
 

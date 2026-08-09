@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { QUALITY_PRESETS, QUALITY_ORDER, type QualityLevel } from "../game/engine";
 
 const CONTROLS: [string, string][] = [
   ["W A S D", "Move"],
@@ -11,7 +12,7 @@ const CONTROLS: [string, string][] = [
   ["Q", "Cast — Sundered Bolt"],
   ["R", "Sacred Flask (heal)"],
   ["1 / 2 / 3", "Greatsword · Twin Blades · Halberd"],
-  ["Tab / Middle Click", "Lock On / Off"],
+  ["Tab / T / V / Middle Click", "Lock On / Off — works even without pointer lock"],
   ["M", "World Map · Fast Travel"],
   ["F", "Talk · Rest at Grace · Read Stones"],
   ["Esc", "Pause"],
@@ -98,17 +99,79 @@ function MenuButton({ label, onClick, primary }: { label: string; onClick: () =>
   );
 }
 
+function QualitySelector({
+  current,
+  onSet,
+}: {
+  current: QualityLevel;
+  onSet: (q: QualityLevel) => void;
+}) {
+  return (
+    <div className="mt-4 p-4 text-left" style={{ border: "1px solid rgba(196,164,102,0.18)", background: "rgba(0,0,0,0.35)" }}>
+      <div className="font-title mb-3 text-[11px] tracking-[0.32em]" style={{ color: "rgba(226,196,140,0.7)" }}>
+        VISUAL FIDELITY — {QUALITY_PRESETS[current].label} · {QUALITY_PRESETS[current].short}
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+        {QUALITY_ORDER.map((q) => {
+          const p = QUALITY_PRESETS[q];
+          const active = q === current;
+          return (
+            <button
+              key={q}
+              onClick={() => onSet(q)}
+              className="group relative p-[10px] text-left transition-all duration-300"
+              style={{
+                border: active ? "1px solid rgba(255,220,150,0.7)" : "1px solid rgba(180,150,100,0.14)",
+                background: active
+                  ? "linear-gradient(180deg, rgba(70,45,20,0.7), rgba(30,18,8,0.8))"
+                  : "linear-gradient(180deg, rgba(18,14,10,0.6), rgba(8,6,5,0.7))",
+                boxShadow: active ? "0 0 18px rgba(255,180,90,0.35), inset 0 0 20px rgba(255,200,120,0.08)" : "none",
+              }}
+            >
+              <div className="font-title text-[11px] tracking-[0.22em]" style={{ color: active ? "#ffe9b0" : "rgba(200,178,138,0.7)" }}>
+                {p.label}
+              </div>
+              <div className="mt-1 text-[9px] tracking-[0.18em]" style={{ color: active ? "rgba(255,220,150,0.8)" : "rgba(170,140,95,0.45)" }}>
+                {p.short}
+              </div>
+              <div className="mt-2 text-[10px] leading-[1.3]" style={{ color: "rgba(198,182,156,0.45)" }}>
+                {p.desc}
+              </div>
+              <div className="mt-2 text-[9px]" style={{ color: "rgba(150,130,100,0.4)" }}>
+                {p.shadows ? `${p.shadowSize}px shadows` : "No shadows"} · {p.bloom ? `Bloom ${p.bloom}` : "No bloom"} · DPR {p.pixelRatio}
+              </div>
+              {active && (
+                <div className="absolute right-2 top-2">
+                  <div className="h-2 w-2 rounded-full" style={{ background: "#ffd47a", boxShadow: "0 0 8px rgba(255,212,122,0.9)" }} />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 text-[10px] italic" style={{ color: "rgba(190,170,140,0.4)" }}>
+        Changes apply instantly. Ultra Low disables shadows/mist/bloom for max FPS. X-High forces native DPR up to 2× and 2k shadows. Lock-on works with TAB/T/V even without pointer lock.
+      </div>
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------- Title
 export function TitleScreen({
   onStart,
   audioOn,
   onToggleAudio,
+  quality,
+  onSetQuality,
 }: {
   onStart: () => void;
   audioOn: boolean;
   onToggleAudio: () => void;
+  quality: QualityLevel;
+  onSetQuality: (q: QualityLevel) => void;
 }) {
   const [showControls, setShowControls] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -141,9 +204,10 @@ export function TitleScreen({
           Rise, Ashbearer. Seek King Aldric in Kingsfall Keep — he alone knows where the stolen flame sleeps.”
         </p>
 
-        <div className="anim-fade-up mt-10 w-[min(88vw,360px)]" style={{ animationDelay: "0.85s" }}>
+        <div className="anim-fade-up mt-10 w-[min(88vw,420px)]" style={{ animationDelay: "0.85s" }}>
           <MenuButton primary label="BEGIN THE PILGRIMAGE" onClick={onStart} />
-          <MenuButton label={showControls ? "CLOSE CODEX" : "CODEX OF ARMS"} onClick={() => setShowControls((v) => !v)} />
+          <MenuButton label={showControls ? "CLOSE CODEX" : "CODEX OF ARMS"} onClick={() => setShowControls((v) => { setShowSettings(false); return !v; })} />
+          <MenuButton label={showSettings ? "CLOSE SETTINGS" : `SETTINGS · ${quality.toUpperCase()}`} onClick={() => setShowSettings((v) => { setShowControls(false); return !v; })} />
           <MenuButton label={audioOn ? "SILENCE THE CHORUS" : "RESTORE THE CHORUS"} onClick={onToggleAudio} />
         </div>
 
@@ -166,6 +230,12 @@ export function TitleScreen({
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {showSettings && (
+          <div className="anim-fade-up mt-7 w-[min(92vw,860px)]" style={{ animationDelay: "0.1s" }}>
+            <QualitySelector current={quality} onSet={onSetQuality} />
           </div>
         )}
 
@@ -203,7 +273,7 @@ export function DeathScreen() {
   );
 }
 
-// ----------------------------------------------------------------- Victory — now dynamic: shows whichever boss was actually felled
+// ----------------------------------------------------------------- Victory
 export function VictoryScreen({ runes, name, onContinue }: { runes: number; name: string; onContinue: () => void }) {
   const isFinal = name.toUpperCase().includes("HOLLOW") || name.toUpperCase().includes("ALDRIC");
   return (
@@ -246,39 +316,50 @@ export function PauseScreen({
   audioOn,
   onToggleAudio,
   runes,
+  quality,
+  onSetQuality,
 }: {
   onResume: () => void;
   onQuit: () => void;
   audioOn: boolean;
   onToggleAudio: () => void;
   runes: number;
+  quality: QualityLevel;
+  onSetQuality: (q: QualityLevel) => void;
 }) {
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
     <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[3px]" style={{ background: "rgba(3,3,5,0.7)" }}>
-      <div className="w-[min(92vw,720px)] p-9 text-center" style={{ border: "1px solid rgba(196,164,102,0.2)", background: "linear-gradient(180deg, rgba(12,10,9,0.9), rgba(5,5,6,0.94))", boxShadow: "0 30px 90px rgba(0,0,0,0.8)" }}>
+      <div className="w-[min(92vw,860px)] max-h-[90vh] overflow-y-auto p-9 text-center" style={{ border: "1px solid rgba(196,164,102,0.2)", background: "linear-gradient(180deg, rgba(12,10,9,0.9), rgba(5,5,6,0.94))", boxShadow: "0 30px 90px rgba(0,0,0,0.8)" }}>
         <div className="flex justify-center">
           <Ornament />
         </div>
         <div className="gold-text font-title mt-3 text-[38px] tracking-[0.4em]">PAUSED</div>
         <div className="mt-1 font-title text-[10px] tracking-[0.34em]" style={{ color: "rgba(200,176,134,0.45)" }}>
-          {runes.toLocaleString()} RUNES HELD
+          {runes.toLocaleString()} RUNES HELD · {quality.toUpperCase()} · TAB/T/V locks nearest even without mouse lock
         </div>
 
-        <div className="mx-auto mt-7 grid max-w-[560px] grid-cols-1 gap-x-8 gap-y-[3px] sm:grid-cols-2">
-          {CONTROLS.map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between gap-3 border-b border-dashed py-[3px]" style={{ borderColor: "rgba(180,150,100,0.12)" }}>
-              <span className="font-title text-[10px] tracking-[0.18em]" style={{ color: "rgba(236,212,164,0.85)" }}>
-                {k}
-              </span>
-              <span className="text-[13px]" style={{ color: "rgba(198,182,156,0.55)" }}>
-                {v}
-              </span>
-            </div>
-          ))}
-        </div>
+        {!showSettings && (
+          <div className="mx-auto mt-7 grid max-w-[560px] grid-cols-1 gap-x-8 gap-y-[3px] sm:grid-cols-2">
+            {CONTROLS.map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-3 border-b border-dashed py-[3px]" style={{ borderColor: "rgba(180,150,100,0.12)" }}>
+                <span className="font-title text-[10px] tracking-[0.18em]" style={{ color: "rgba(236,212,164,0.85)" }}>
+                  {k}
+                </span>
+                <span className="text-[13px]" style={{ color: "rgba(198,182,156,0.55)" }}>
+                  {v}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <div className="mx-auto mt-7 w-[320px]">
+        {showSettings && <QualitySelector current={quality} onSet={onSetQuality} />}
+
+        <div className="mx-auto mt-7 w-[420px]">
           <MenuButton primary label="RETURN TO THE FIGHT" onClick={onResume} />
+          <MenuButton label={showSettings ? "HIDE SETTINGS" : `QUALITY · ${quality.toUpperCase()}`} onClick={() => setShowSettings((v) => !v)} />
           <MenuButton label={audioOn ? "SILENCE THE CHORUS" : "RESTORE THE CHORUS"} onClick={onToggleAudio} />
           <MenuButton label="ABANDON — TITLE SCREEN" onClick={onQuit} />
         </div>
