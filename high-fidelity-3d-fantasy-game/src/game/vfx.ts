@@ -210,7 +210,8 @@ export class SwordTrail {
 
   push(base: THREE.Vector3, tip: THREE.Vector3, active: boolean) {
     const wasActive = this.strength > 0;
-    this.strength = active ? 0.7 : Math.max(0, this.strength - 0.12);
+    // insane polish: faster fade for tighter trails, slower for heavy weapons
+    this.strength = active ? Math.min(1.0, this.strength + 0.28) : Math.max(0, this.strength - 0.16);
     if (!active && !wasActive) return;
 
     if (active) {
@@ -219,7 +220,6 @@ export class SwordTrail {
       this.pos[0] = base.x; this.pos[1] = base.y; this.pos[2] = base.z;
       this.pos[3] = tip.x; this.pos[4] = tip.y; this.pos[5] = tip.z;
       if (this.filled < this.segs) this.filled++;
-      // keep the untouched tail pinned to the newest sample so no stray geometry appears
       for (let s = this.filled; s < this.segs; s++) {
         const i = s * 6;
         this.pos[i] = base.x; this.pos[i + 1] = base.y; this.pos[i + 2] = base.z;
@@ -230,10 +230,16 @@ export class SwordTrail {
     const denom = Math.max(1, this.filled - 1);
     for (let s = 0; s < this.segs; s++) {
       const a = s >= this.filled ? 0 : Math.max(0, 1 - s / denom);
-      this.alpha[s * 2] = a * a * 0.5 * this.strength;
-      this.alpha[s * 2 + 1] = a * a * this.strength;
+      // insane polish: width taper + core/edge alpha curve
+      const taper = Math.pow(a, 0.65);
+      const core = taper * taper * this.strength * 1.2;
+      const edge = taper * this.strength * 0.65;
+      // add subtle pulse at tip
+      const pulse = active && s < 3 ? 1.3 : 1.0;
+      this.alpha[s * 2] = edge * pulse;
+      this.alpha[s * 2 + 1] = core * pulse;
     }
-    if (!active && this.strength <= 0) this.filled = 0;
+    if (!active && this.strength <= 0.02) this.filled = 0;
     (this.geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     (this.geo.attributes.aAlpha as THREE.BufferAttribute).needsUpdate = true;
   }
@@ -279,6 +285,14 @@ export class Shockwaves {
     if (tilt) m.rotation.set(-Math.PI / 2, 0, Math.random() * 3);
     m.scale.setScalar(0.2);
     this.items.push({ mesh: m, life, max: life, grow: size, tilt });
+    // insane polish: second inner ring for heavy impacts
+    if (size > 4) {
+      const inner = this.acquire(color);
+      inner.position.copy(pos);
+      if (tilt) inner.rotation.set(-Math.PI / 2, 0, Math.random() * 3);
+      inner.scale.setScalar(0.1);
+      this.items.push({ mesh: inner, life: life*0.7, max: life*0.7, grow: size*0.55, tilt });
+    }
   }
 
   update(dt: number, cam: THREE.Camera) {

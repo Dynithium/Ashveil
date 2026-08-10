@@ -371,6 +371,7 @@ export interface HudState {
   marker: { x: number; y: number; dist: number } | null;
   dialogue: DialogueState | null;
   upgrades: { blade: number; vigor: number; arcane: number };
+  combo: number;
   weapon: string;
   mapOpen: boolean;
   map: {
@@ -491,6 +492,10 @@ export class Game {
   private bannerT = 0;
   bloodstain: { pos: THREE.Vector3; runes: number; mesh: THREE.Mesh } | null = null;
   private prompt: string | null = null;
+  // combo system
+  private comboCount = 0;
+  private comboTimer = 0;
+  private comboBest = 0;
 
   // quest / king
   questStage = 0;
@@ -1183,6 +1188,58 @@ export class Game {
     this.bannerT = 4.2;
   }
 
+  private incCombo() {
+    this.comboCount++;
+    this.comboTimer = 3.2;
+    if (this.comboCount > this.comboBest) this.comboBest = this.comboCount;
+    if (this.comboCount >= 3) {
+      this.showBanner(`${this.comboCount}x COMBO!`, this.comboCount >= 5 ? "The flame sings through you" : "Keep striking");
+    }
+  }
+
+  private resetCombo() {
+    if (this.comboCount > 0) {
+      if (this.comboCount >= 5) audio.grace();
+    }
+    this.comboCount = 0;
+    this.comboTimer = 0;
+  }
+
+  /** Auto-detect quality by quick benchmark */
+  async benchmarkQuality(): Promise<QualityLevel> {
+    this.showBanner("BENCHMARKING...", "Measuring frame rate for 2 seconds");
+    const start = performance.now();
+    let frames = 0;
+    let fpsSamples: number[] = [];
+    let last = performance.now();
+    return new Promise((resolve) => {
+      const tick = () => {
+        frames++;
+        const now = performance.now();
+        if (now - last > 200) {
+          const fps = Math.round((frames * 1000) / (now - start));
+          fpsSamples.push(fps);
+          last = now;
+        }
+        if (now - start < 2200) {
+          requestAnimationFrame(tick);
+        } else {
+          const avg = fpsSamples.length ? Math.round(fpsSamples.reduce((a,b)=>a+b,0)/fpsSamples.length) : this.fps;
+          let suggested: QualityLevel = "medium";
+          if (avg < 30) suggested = "ultralow";
+          else if (avg < 42) suggested = "low";
+          else if (avg < 54) suggested = "medium";
+          else if (avg < 66) suggested = "high";
+          else suggested = "xhigh";
+          this.setQuality(suggested);
+          this.showBanner(`AUTO-DETECTED: ${suggested.toUpperCase()}`, `${avg} FPS avg · ${QUALITY_PRESETS[suggested].desc}`);
+          resolve(suggested);
+        }
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
   private ctx(dt: number): GameCtx {
     return {
       dt,
@@ -1200,6 +1257,8 @@ export class Game {
       onKill: (npc) => this.handleKill(npc),
       onPlayerDeath: () => this.handlePlayerDeath(),
       slowmo: (scale, dur) => { this.slowmoScale = scale; this.slowmoT = dur; },
+      incCombo: () => this.incCombo(),
+      resetCombo: () => this.resetCombo(),
     };
   }
 
@@ -1299,6 +1358,7 @@ export class Game {
             const dmg = p.damage * (1 - (d / (p.explode + e.radius)) * 0.5);
             e.damage(dmg, pos, ctx, 34);
             this.addPopup(c.clone().setY(c.y + 0.6), Math.round(dmg).toString(), "magic");
+            if (p.fromPlayer) this.incCombo();
           }
         }
       } else {
@@ -1426,6 +1486,7 @@ export class Game {
   }
 
   private handlePlayerDeath() {
+    this.resetCombo();
     this.dead = true;
     this.dialogue = null;
     this.respawnTimer = 5.2;
@@ -1658,11 +1719,40 @@ export class Game {
     );
 
     const target = new THREE.Vector3(p.pos.x, focusY, p.pos.z);
-    const desired = target.clone().add(off);
+    let desired = target.clone().add(off);
+
+    // ---- insane polish: camera collision — ray march against colliders to prevent wall clipping
+    // simple sphere sweep: if line from target to desired hits any collider, pull in
+    const dir = new THREE.Vector3().subVectors(desired, target);
+    const len = dir.length();
+    if (len > 0.1) {
+      dir.normalize();
+      let closest = len;
+      for (const col of this.world.colliders) {
+        // project collider onto camera ray
+        const toCol = new THREE.Vector3(col.x - target.x, 0, col.z - target.z);
+        const proj = toCol.dot(new THREE.Vector3(dir.x, 0, dir.z));
+        if (proj < 0 || proj > len) continue;
+        const perp = new THREE.Vector3().copy(toCol).sub(new THREE.Vector3(dir.x,0,dir.z).multiplyScalar(proj));
+        if (perp.length() < col.r + 0.6) {
+          closest = Math.min(closest, Math.max(1.2, proj - 0.8));
+        }
+      }
+      if (closest < len) {
+        desired = target.clone().addScaledVector(dir, closest);
+      }
+    }
 
     // keep the camera above whatever floor the player is standing on
     const gh = groundAt(desired.x, desired.z, p.pos.y + 2.2) + 0.9;
     if (desired.y < gh) desired.y = gh;
+
+    // subtle camera breathing when idle — insane polish
+    if (!this.lockTarget && p.state === "idle") {
+      desired.y += Math.sin(this.time * 0.9) * 0.04;
+      desired.x += Math.sin(this.time * 0.6) * 0.02;
+    }
+
 
     if (instant) this.camPos.copy(desired);
     else this.camPos.lerp(desired, Math.min(1, dt * 9));
@@ -1961,6 +2051,12 @@ export class Game {
       if (this.respawnTimer <= 0) this.respawn();
     }
 
+    // ---- combo timer ----
+    if (this.comboTimer > 0) {
+      this.comboTimer -= raw;
+      if (this.comboTimer <= 0) this.resetCombo();
+    }
+
     // ---- post fx uniforms ----
     this.damageFx += ((1 - this.player.hp / this.player.maxHp > 0.65 ? 0.4 : 0) - this.damageFx) * 0.05;
     const hurtPulse = this.player.hurtCooldown > 0 ? this.player.hurtCooldown / 0.35 : 0;
@@ -2033,6 +2129,7 @@ export class Game {
       quality: this.qualityLevel,
       paused: this.paused,
       started: this.started,
+      combo: this.comboCount,
       area:
         Math.hypot(p.pos.x, p.pos.z) < WORLD.arenaRadius + 8
           ? "Cathedral of the Sundered Flame"

@@ -33,6 +33,13 @@ canvas {
   touch-action: none;
 }
 
+/* Smooth fonts */
+* {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .font-title {
   font-family: "Cinzel", Georgia, serif;
 }
@@ -54,9 +61,13 @@ canvas {
   filter: drop-shadow(0 0 18px rgba(231, 198, 128, 0.45));
 }
 
-/* ------- Vignettes & film ------- */
+/* ------- Vignettes & film — insane polish: layered vignette + chromatic subtle ------- */
 .vignette {
   background: radial-gradient(ellipse at 50% 48%, transparent 34%, rgba(0, 0, 0, 0.55) 88%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.vignette-soft {
+  background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%);
 }
 
 .grain {
@@ -71,12 +82,18 @@ canvas {
   100% { transform: translate(0, 0); }
 }
 
-/* ------- Animations ------- */
+/* ------- Animations — insane polish pack ------- */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .anim-fade-up { animation: fadeUp 1.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes fadeUpSoft {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+.anim-fade-up-soft { animation: fadeUpSoft 0.9s cubic-bezier(0.16,1,0.3,1) both; }
 
 @keyframes emberFloat {
   0% { transform: translate3d(0, 100%, 0) scale(0.5); opacity: 0; }
@@ -97,6 +114,12 @@ canvas {
   50% { opacity: 1; }
 }
 .anim-pulse-slow { animation: pulseSlow 2.6s ease-in-out infinite; }
+
+@keyframes pulseFast {
+  0%,100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+.anim-pulse-fast { animation: pulseFast 0.9s ease-in-out infinite; }
 
 @keyframes shimmer {
   0% { background-position: -220% 0; }
@@ -120,11 +143,59 @@ canvas {
   100% { opacity: 0; transform: translateY(-42px) scale(1); }
 }
 
+@keyframes riseFadeCrit {
+  0% { opacity: 0; transform: translateY(18px) scale(0.8) rotate(-3deg); }
+  15% { opacity: 1; transform: translateY(-6px) scale(1.25) rotate(1deg); }
+  30% { transform: translateY(-10px) scale(1.1) rotate(0); }
+  100% { opacity: 0; transform: translateY(-66px) scale(1) rotate(0); }
+}
+
 @keyframes hitFlash {
   0% { opacity: 0.85; }
   100% { opacity: 0; }
 }
 
-::-webkit-scrollbar { width: 8px; }
+@keyframes comboPop {
+  0% { transform: translate(-50%, -30%) scale(0.6); opacity: 0; filter: blur(6px); }
+  18% { transform: translate(-50%, -50%) scale(1.22); opacity: 1; filter: blur(0); }
+  75% { transform: translate(-50%, -55%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -70%) scale(0.95); opacity: 0; }
+}
+.anim-combo { animation: comboPop 1.1s cubic-bezier(0.16,1,0.3,1) both; }
+
+@keyframes lockPulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.9; }
+  50% { transform: translate(-50%,-50%) scale(1.08); opacity: 1; }
+}
+.anim-lock { animation: lockPulse 1.6s ease-in-out infinite; }
+
+@keyframes bannerIn {
+  0% { opacity: 0; transform: translate(-50%, -20%) scale(0.9); letter-spacing: 0.6em; filter: blur(8px); }
+  35% { opacity: 1; transform: translate(-50%, 0) scale(1.05); filter: blur(0); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.anim-banner { animation: bannerIn 0.9s cubic-bezier(0.16,1,0.3,1) both; }
+
+@keyframes goldShimmer {
+  0% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(12deg) brightness(1.15); }
+  100% { filter: hue-rotate(0deg) brightness(1); }
+}
+.anim-gold-shimmer { animation: goldShimmer 4s ease-in-out infinite; }
+
+/* Scrollbars — polished */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.4); }
-::-webkit-scrollbar-thumb { background: #4a3d22; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #6a5a32, #4a3d22); border-radius: 4px; border: 1px solid rgba(200,170,120,0.2); }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #8a7a42, #5a4d32); }
+
+/* Selection polish */
+::selection { background: rgba(231,198,128,0.25); color: #fff6dd; }
+
+/* Focus states */
+button:focus-visible { outline: 1px solid rgba(231,198,128,0.5); outline-offset: 2px; }
+
+/* Insane polish: subtle chromatic aberration on hover for menu buttons */
+.group:hover {
+  filter: drop-shadow(0 0 8px rgba(231,198,128,0.15));
+}

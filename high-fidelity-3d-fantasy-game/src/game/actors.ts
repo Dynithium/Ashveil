@@ -23,6 +23,8 @@ export interface GameCtx {
   onKill: (npc: NPC) => void;
   onPlayerDeath: () => void;
   slowmo: (scale: number, dur: number) => void;
+  incCombo?: () => void;
+  resetCombo?: () => void;
 }
 
 export interface ProjectileOpts {
@@ -350,6 +352,7 @@ export class Player extends Actor {
     ctx.popup(V2.copy(this.pos).setY(this.pos.y + 1.95), Math.round(dmg).toString(), "playerhurt");
 
     if (!blocking) {
+      ctx.resetCombo?.();
       audio.hit("flesh");
       ctx.particles.emit({
         x: this.pos.x, y: this.pos.y + 1.1, z: this.pos.z,
@@ -643,6 +646,7 @@ export class Player extends Actor {
         const finalDmg = dmg * this.bladePower * godMul * (crit ? cfg.critMul : 1) * (0.92 + Math.random() * 0.16);
         e.damage(finalDmg, this.pos, ctx, isHeavy ? 46 : 20);
         ctx.popup(c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.5, 0)), Math.round(finalDmg).toString(), crit ? "crit" : "dmg");
+        ctx.incCombo?.();
         ctx.hitStop(isHeavy ? 0.04 : 0.022);
         ctx.shake(isHeavy ? 0.55 : 0.3, 0.18);
         ctx.particles.emit({ x: c.x, y: c.y, z: c.z, count: crit ? 18 : 10, speed: 6, size: 5, life: 0.35, color: 0xffc466, grav: -7 });

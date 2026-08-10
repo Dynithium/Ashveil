@@ -1597,6 +1597,66 @@ export class World {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.renderOrder = 5;
     this.scene.add(mesh);
+
+    // ---- insane polish: dust motes inside keep — golden specks
+    this.buildKeepDust();
+    this.buildLensFlare();
+  }
+
+  private lensFlareGroup?: THREE.Group;
+  private dustPoints?: THREE.Points;
+
+  private buildLensFlare() {
+    const group = new THREE.Group();
+    group.renderOrder = 15;
+    const mk = (size: number, color: number, op: number) => {
+      const c = document.createElement("canvas");
+      c.width = c.height = 128;
+      const g = c.getContext("2d")!;
+      const grd = g.createRadialGradient(64,64,0,64,64,64);
+      grd.addColorStop(0, `rgba(${(color>>16)&255},${(color>>8)&255},${color&255},1)`);
+      grd.addColorStop(0.2, `rgba(${(color>>16)&255},${(color>>8)&255},${color&255},0.6)`);
+      grd.addColorStop(0.5, `rgba(${(color>>16)&255},${(color>>8)&255},${color&255},0.15)`);
+      grd.addColorStop(1, `rgba(0,0,0,0)`);
+      g.fillStyle = grd;
+      g.fillRect(0,0,128,128);
+      const tex = new THREE.CanvasTexture(c);
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: op, fog: false });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+      // @ts-ignore
+      mesh.frustumCulled = false;
+      group.add(mesh);
+      return mesh;
+    };
+    mk(4.5, 0xffe6b0, 0.9);
+    mk(12, 0xffc978, 0.35);
+    mk(28, 0xffa05a, 0.12);
+    this.lensFlareGroup = group;
+    this.scene.add(group);
+  }
+
+  private buildKeepDust() {
+    // golden dust inside keep — subtle
+    const count = 120;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count*3);
+    const col = new Float32Array(count*3);
+    for (let i=0;i<count;i++) {
+      pos[i*3] = (Math.random()-0.5)*18;
+      pos[i*3+1] = 10 + Math.random()*14;
+      pos[i*3+2] = 115 + Math.random()*16;
+      col[i*3] = 1.0;
+      col[i*3+1] = 0.78 + Math.random()*0.18;
+      col[i*3+2] = 0.42 + Math.random()*0.2;
+    }
+    geo.setAttribute("position", new THREE.BufferAttribute(pos,3));
+    geo.setAttribute("color", new THREE.BufferAttribute(col,3));
+    const mat = new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    points.renderOrder = 6;
+    this.dustPoints = points;
+    this.scene.add(points);
   }
 
   // ------------------------------ update -----------------------------------
@@ -1651,6 +1711,39 @@ export class World {
     for (const stone of this.loreStones) {
       stone.mesh.rotation.y = this.time * 0.5 + stone.id;
       stone.mesh.position.y = 1.3 + Math.sin(this.time * 1.1 + stone.id * 2) * 0.1;
+    }
+
+    // ---- insane polish: lens flare tracks sun, fades when sun behind
+    if (this.lensFlareGroup) {
+      const sunDot = this.sunDir.dot(new THREE.Vector3(0,0.2,1).normalize());
+      // roughly check if sun is in front of camera: use camForward dot sunDir
+      const camForward = new THREE.Vector3();
+      // we don't have cam ref here, but we have camPos passed — approximate with time
+      const visible = this.sunDir.y > -0.2 ? Math.max(0, (this.sunDir.y + 0.2) * 1.2) * (0.7 + 0.3*Math.sin(this.time*0.4)) : 0;
+      this.lensFlareGroup.visible = visible > 0.05;
+      if (visible > 0.05) {
+        // place far in sun direction
+        const dist = 800;
+        this.lensFlareGroup.position.set(this.sunDir.x*dist, this.sunDir.y*dist + 80, this.sunDir.z*dist);
+        this.lensFlareGroup.children.forEach((c,i)=>{
+          const m = c as THREE.Mesh;
+          m.lookAt(camPos);
+          (m.material as THREE.MeshBasicMaterial).opacity = visible * (i===0?0.9:i===1?0.32:0.12) * (0.8 + Math.sin(this.time* (1+i*0.6))*0.15);
+        });
+      }
+    }
+
+    // dust motes drift
+    if (this.dustPoints) {
+      const arr = this.dustPoints.geometry.attributes.position.array as Float32Array;
+      for (let i=0;i<arr.length;i+=3) {
+        arr[i] += Math.sin(this.time*0.3 + i)*0.002;
+        arr[i+1] += Math.sin(this.time*0.2 + i*0.7)*0.003;
+        arr[i+2] += Math.cos(this.time*0.25 + i*0.5)*0.002;
+        // wrap
+        if (arr[i+1] > 26) arr[i+1] = 10;
+      }
+      (this.dustPoints.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     }
   }
 

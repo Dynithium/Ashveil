@@ -172,9 +172,13 @@ export function TitleScreen({
 }) {
   const [showControls, setShowControls] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const onMouse = (e: React.MouseEvent) => {
+    setMouse({ x: (e.clientX / window.innerWidth - 0.5) * 2, y: (e.clientY / window.innerHeight - 0.5) * 2 });
+  };
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden" onMouseMove={onMouse}>
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0.14) 0%, rgba(4,3,6,0.78) 62%, rgba(2,2,4,0.96) 100%)" }} />
       <Embers />
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" />
@@ -184,7 +188,7 @@ export function TitleScreen({
           <Ornament />
           <h1
             className="gold-text font-title mt-4 text-[clamp(46px,10.5vw,158px)] leading-[0.92] tracking-[0.16em]"
-            style={{ textShadow: "0 0 90px rgba(255,180,90,0.30)" }}
+            style={{ textShadow: "0 0 90px rgba(255,180,90,0.30)", transform: `translate3d(${mouse.x * 12}px, ${mouse.y * 6}px, 0)` }}
           >
             ASHVEIL
           </h1>
@@ -239,8 +243,9 @@ export function TitleScreen({
           </div>
         )}
 
-        <div className="absolute bottom-5 left-0 right-0 text-center font-title text-[9px] tracking-[0.36em]" style={{ color: "rgba(180,158,120,0.3)" }}>
-          A REAL-TIME PROCEDURAL WORLD · WEBGL · NO ASSETS, ONLY MATH
+        <div className="absolute bottom-5 left-0 right-0 flex justify-between px-6 text-center font-title text-[9px] tracking-[0.36em]" style={{ color: "rgba(180,158,120,0.3)" }}>
+          <span>A REAL-TIME PROCEDURAL WORLD · WEBGL · NO ASSETS, ONLY MATH</span>
+          <span>{quality.toUpperCase()} · {QUALITY_PRESETS[quality].short} · {QUALITY_PRESETS[quality].pixelRatio} DPR</span>
         </div>
       </div>
     </div>

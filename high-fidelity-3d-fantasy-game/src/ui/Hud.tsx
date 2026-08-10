@@ -169,9 +169,15 @@ export function Hud({ s }: { s: HudState }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 select-none" style={{ fontFamily: '"Cormorant Garamond", serif' }}>
+      {/* ---------- crit flash — insane polish */}
+      {s.popups.some(p=>p.kind==='crit' && Date.now()-p.born < 120) && (
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(255,220,150,0.18), transparent 70%)", animation: "hitFlash 0.22s ease-out forwards" }} />
+      )}
+
       {/* ---------- damage numbers ---------- */}
       {s.popups.map((p) => {
         const st = POPUP_STYLE[p.kind] ?? POPUP_STYLE.dmg;
+        const isCrit = p.kind==='crit';
         return (
           <div
             key={p.id}
@@ -179,12 +185,12 @@ export function Hud({ s }: { s: HudState }) {
             style={{
               left: `${p.x}%`,
               top: `${p.y}%`,
-              transform: "translate(-50%,-50%)",
+              transform: `translate(-50%,-50%) scale(${isCrit?1.18:1})`,
               color: st.color,
               fontSize: st.size,
               fontWeight: st.weight,
               textShadow: st.shadow,
-              animation: "riseFade 1.4s cubic-bezier(0.16,1,0.3,1) forwards",
+              animation: `${isCrit ? "riseFade 1.6s cubic-bezier(0.16,1,0.3,1) forwards, pulseSlow 0.3s ease-out" : "riseFade 1.4s cubic-bezier(0.16,1,0.3,1) forwards"}`,
               letterSpacing: "0.06em",
             }}
           >
@@ -193,15 +199,22 @@ export function Hud({ s }: { s: HudState }) {
         );
       })}
 
-      {/* ---------- lock-on reticle ---------- */}
+      {/* ---------- lock-on reticle — insane polish: pulsing diamond + ticks */}
       {s.lockOn && (
         <div className="absolute" style={{ left: `${s.lockOn.x}%`, top: `${s.lockOn.y}%`, transform: "translate(-50%,-50%)" }}>
-          <svg width="44" height="44" viewBox="0 0 44 44" style={{ filter: "drop-shadow(0 0 8px rgba(255,235,190,0.9))" }}>
-            <g stroke="rgba(255,242,214,0.95)" strokeWidth="1.4" fill="none">
-              <path d="M22 5 L30 22 L22 39 L14 22 Z" opacity="0.9" />
-              <circle cx="22" cy="22" r="3.2" fill="rgba(255,240,200,0.9)" stroke="none" />
+          <svg width="56" height="56" viewBox="0 0 56 56" style={{ filter: "drop-shadow(0 0 12px rgba(255,235,190,1))" }}>
+            <g stroke="rgba(255,242,214,0.95)" strokeWidth="1.4" fill="none" className="anim-pulse-slow">
+              <path d="M28 4 L36 28 L28 52 L20 28 Z" opacity="0.9" />
+              <circle cx="28" cy="28" r="3.6" fill="rgba(255,240,200,0.95)" stroke="none" />
+              <circle cx="28" cy="28" r="18" fill="none" stroke="rgba(255,220,150,0.35)" strokeWidth="0.8" strokeDasharray="3 4" />
+            </g>
+            <g stroke="rgba(255,220,150,0.5)" strokeWidth="1" fill="none">
+              <path d="M28 0 L28 6 M28 50 L28 56 M0 28 L6 28 M50 28 L56 28" />
             </g>
           </svg>
+          <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 font-title text-[9px] tracking-[0.3em]" style={{ color: "rgba(255,232,180,0.7)", textShadow: "0 2px 6px #000" }}>
+            LOCKED · TAB/T/V UNLOCK
+          </div>
         </div>
       )}
 
@@ -323,6 +336,27 @@ export function Hud({ s }: { s: HudState }) {
       <div className="absolute right-8 top-[204px] text-right font-title text-[9px] tracking-[0.18em]" style={{ color: "rgba(226,196,140,0.48)", textShadow: "0 2px 6px #000" }}>
         BLADE +{s.upgrades.blade} · VIGOR +{s.upgrades.vigor} · ARCANE +{s.upgrades.arcane}
       </div>
+
+      {/* ---------- combo — insane polish: shows when >=2 */}
+      {s.combo >= 2 && (
+        <div className="absolute left-1/2 top-[28%] -translate-x-1/2 text-center pointer-events-none">
+          <div
+            className="font-title anim-fade-up"
+            style={{
+              fontSize: s.combo >=5 ? 54 : 38,
+              letterSpacing: "0.18em",
+              color: s.combo >=5 ? "#ffe9b0" : "#f4ead2",
+              textShadow: s.combo >=5 ? "0 0 28px rgba(255,220,150,0.9), 0 2px 12px #000" : "0 2px 8px #000",
+              transform: `scale(${1 + Math.min(0.25, s.combo*0.025)})`,
+            }}
+          >
+            {s.combo}x COMBO
+          </div>
+          <div className="font-title text-[10px] tracking-[0.3em] mt-1" style={{ color: "rgba(226,196,140,0.6)" }}>
+            {s.combo >=8 ? "UNSTOPPABLE" : s.combo >=5 ? "FLAME INCARNATE" : s.combo >=3 ? "KEEP GOING" : ""}
+          </div>
+        </div>
+      )}
 
       {/* ---------- target hp ---------- */}
       {s.target && (
