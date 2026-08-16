@@ -206,9 +206,9 @@ export const WEAPON_CONFIG: Record<
     label: "Greatsword",
     stamAtk: 16, stamHeavy: 34,
     dmg: [21, 24, 33], heavyDmg: 52,
-    atkDur: [0.7, 0.7, 0.86], heavyDur: 1.02,
+    atkDur: [0.64, 0.64, 0.78], heavyDur: 0.96,
     trailColor: 0xbfe4ff, critMul: 1.85, rigWeapon: "greatsword",
-    lightWindows: [[0.32, 0.6], [0.28, 0.54], [0.38, 0.6]],
+    lightWindows: [[0.28, 0.52], [0.24, 0.48], [0.32, 0.54]],
     heavyWindow: [0.44, 0.68],
     range: 0.75,
   },
@@ -216,9 +216,9 @@ export const WEAPON_CONFIG: Record<
     label: "Twin Blades",
     stamAtk: 9, stamHeavy: 24,
     dmg: [11, 12, 16], heavyDmg: 28,
-    atkDur: [0.4, 0.4, 0.5], heavyDur: 0.85,
+    atkDur: [0.36, 0.36, 0.44], heavyDur: 0.78,
     trailColor: 0xff6a52, critMul: 1.6, rigWeapon: "twinblades",
-    lightWindows: [[0.16, 0.32], [0.16, 0.32], [0.2, 0.4]],
+    lightWindows: [[0.14, 0.28], [0.14, 0.28], [0.18, 0.34]],
     heavyWindow: [0.3, 0.62],
     range: 0.6,
   },
@@ -226,7 +226,7 @@ export const WEAPON_CONFIG: Record<
     label: "Halberd",
     stamAtk: 20, stamHeavy: 40,
     dmg: [26, 28, 40], heavyDmg: 64,
-    atkDur: [0.78, 0.78, 0.98], heavyDur: 1.2,
+    atkDur: [0.70, 0.70, 0.88], heavyDur: 1.08,
     trailColor: 0x9fd8ff, critMul: 2.0, rigWeapon: "halberd",
     lightWindows: [[0.4, 0.62], [0.4, 0.62], [0.5, 0.72]],
     heavyWindow: [0.5, 0.74],
@@ -324,10 +324,12 @@ export class Player extends Actor {
 
     if (blocking) {
       if (this.parryWindow > 0) {
+        const perfect = this.parryWindow > 0.12;
         audio.parry();
-        ctx.shake(0.5, 0.25);
-        ctx.hitStop(0.09);
-        ctx.popup(V2.copy(this.pos).setY(this.pos.y + 1.9), "PARRY", "parry");
+        ctx.shake(perfect ? 0.72 : 0.48, perfect ? 0.32 : 0.22);
+        ctx.hitStop(perfect ? 0.14 : 0.08);
+        ctx.slowmo?.(perfect ? 0.22 : 0.45, perfect ? 0.32 : 0.18);
+        ctx.popup(V2.copy(this.pos).setY(this.pos.y + 1.9), perfect ? "PERFECT PARRY" : "PARRY", "parry");
         ctx.particles.emit({ x: fromPos.x, y: fromPos.y, z: fromPos.z, count: 40, speed: 8, size: 7, life: 0.5, color: 0xfff0c0, grav: -3 });
         ctx.waves.spawn(V2.copy(this.pos).addScaledVector(facing, 1.2).setY(this.pos.y + 1.2), 0xffe9b0, 3.2, 0.4, false);
         this.parryWindow = 0;
@@ -413,7 +415,7 @@ export class Player extends Actor {
     } else {
       this.staminaRegenDelay = Math.max(0, this.staminaRegenDelay - dt);
       if (this.staminaRegenDelay <= 0) {
-        const rate = this.state === "guard" ? 12 : 34;
+        const rate = this.state === "guard" ? 14 : 38;
         this.stamina = Math.min(this.maxStamina, this.stamina + rate * dt);
       }
       this.fp = Math.min(this.maxFp, this.fp + 1.4 * dt);
@@ -430,15 +432,15 @@ export class Player extends Actor {
         // Space is the "ascend" key in fly mode — never roll
       } else if (input.roll && this.stamina >= 22) {
         this.spend(22);
-        this.invuln = 0.42;
+        this.invuln = 0.44;
         audio.roll();
         if (wantMove) {
           this.yaw = moveYaw;
-          this.setState("roll", 0.62);
-          this.vel.set(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(11.5);
+          this.setState("roll", 0.58);
+          this.vel.set(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(12.2);
         } else {
-          this.setState("backstep", 0.44);
-          this.vel.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).multiplyScalar(8.5);
+          this.setState("backstep", 0.40);
+          this.vel.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).multiplyScalar(9.0);
         }
         ctx.particles.emit({ x: this.pos.x, y: this.pos.y + 0.15, z: this.pos.z, count: 24, speed: 3, size: 8, life: 0.7, color: 0x6b5c48, grav: -1.5 });
       } else if (input.heavy && this.stamina >= (WEAPON_CONFIG[this.weaponKind]?.stamHeavy ?? 34)) {
@@ -522,30 +524,34 @@ export class Player extends Actor {
 
     if (!locked) {
       const base = input.guard ? 2.6 : input.sprint && this.stamina > 6 ? 8.4 : 4.6;
-      if (input.sprint && wantMove && !input.guard) this.spend(11 * dt);
+      if (input.sprint && wantMove && !input.guard) this.spend(10 * dt);
       if (wantMove) {
-        this.yaw = angleLerp(this.yaw, desiredYaw, Math.min(1, dt * (input.guard ? 9 : 14)));
+        const turnRate = input.guard ? 10 : input.sprint ? 11 : 18;
+        this.yaw = angleLerp(this.yaw, desiredYaw, Math.min(1, dt * turnRate));
         const spd = base * Math.min(1, mag);
-        this.vel.x += (Math.sin(moveYaw) * spd - this.vel.x) * Math.min(1, dt * 13);
-        this.vel.z += (Math.cos(moveYaw) * spd - this.vel.z) * Math.min(1, dt * 13);
-        speedTarget = base > 6 ? 1 : 0.5;
+        this.vel.x += (Math.sin(moveYaw) * spd - this.vel.x) * Math.min(1, dt * 22);
+        this.vel.z += (Math.cos(moveYaw) * spd - this.vel.z) * Math.min(1, dt * 22);
+        speedTarget = base > 6 ? 1 : 0.52;
         if (this.state !== "guard") this.state = "locomotion";
       } else {
-        this.vel.x *= Math.exp(-14 * dt);
-        this.vel.z *= Math.exp(-14 * dt);
+        this.vel.x *= Math.exp(-26 * dt);
+        this.vel.z *= Math.exp(-26 * dt);
+        if (this.vel.length() < 0.08) this.vel.set(0,0,0);
         if (this.state === "locomotion") this.state = "idle";
       }
     } else {
-      // root motion
+      // root motion — honorable, crisp, no slide
       let push = 0;
-      if (this.state === "attack") push = this.phase > 0.24 && this.phase < 0.52 ? 7 : 0;
-      if (this.state === "heavy") push = this.phase > 0.4 && this.phase < 0.62 ? 8.5 : 0;
+      if (this.state === "attack") push = this.phase > 0.24 && this.phase < 0.48 ? 7.2 : 0;
+      if (this.state === "heavy") push = this.phase > 0.4 && this.phase < 0.60 ? 8.8 : 0;
       if (push > 0) {
-        this.vel.x += (Math.sin(this.yaw) * push - this.vel.x) * Math.min(1, dt * 9);
-        this.vel.z += (Math.cos(this.yaw) * push - this.vel.z) * Math.min(1, dt * 9);
+        this.vel.x += (Math.sin(this.yaw) * push - this.vel.x) * Math.min(1, dt * 14);
+        this.vel.z += (Math.cos(this.yaw) * push - this.vel.z) * Math.min(1, dt * 14);
       } else {
-        this.vel.x *= Math.exp(-(this.state === "roll" ? 3.4 : 9) * dt);
-        this.vel.z *= Math.exp(-(this.state === "roll" ? 3.4 : 9) * dt);
+        const decay = this.state === "roll" ? 3.8 : this.state === "backstep" ? 7 : 18;
+        this.vel.x *= Math.exp(-decay * dt);
+        this.vel.z *= Math.exp(-decay * dt);
+        if (this.state !== "roll" && this.vel.length() < 0.15) this.vel.set(0,0,0);
       }
     }
 
@@ -670,8 +676,8 @@ export class Player extends Actor {
         e.damage(finalDmg, this.pos, ctx, isHeavy ? 46 : 20);
         ctx.popup(c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.5, 0)), Math.round(finalDmg).toString(), crit ? "crit" : "dmg");
         ctx.incCombo?.();
-        ctx.hitStop(isHeavy ? 0.04 : 0.022);
-        ctx.shake(isHeavy ? 0.55 : 0.3, 0.18);
+        ctx.hitStop(isHeavy ? 0.062 : 0.028);
+        ctx.shake(isHeavy ? 0.62 : 0.34, isHeavy ? 0.22 : 0.16);
         ctx.particles.emit({ x: c.x, y: c.y, z: c.z, count: crit ? 18 : 10, speed: 6, size: 5, life: 0.35, color: 0xffc466, grav: -7 });
         ctx.particles.emit({ x: c.x, y: c.y, z: c.z, count: 8, speed: 3, size: 5, life: 0.4, color: 0x7a1512, grav: -8 });
         ctx.waves.spawn(c.clone(), 0xffd08a, 1.8, 0.3, false);

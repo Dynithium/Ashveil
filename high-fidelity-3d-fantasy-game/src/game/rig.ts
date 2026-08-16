@@ -727,7 +727,7 @@ export function poseRig(rig: Rig, p: PoseInput) {
     shRX = -0.3 * f;
   }
 
-  const snap = p.state === "attack" || p.state === "heavy" || p.state === "roll" ? 40 : k;
+  const snap = p.state === "attack" || p.state === "heavy" ? 62 : p.state === "roll" || p.state === "backstep" ? 48 : k;
 
   rig.hips.position.y = damp(rig.hips.position.y, rig.hipHeight + hipsY * (rig.hipHeight / 0.95), snap, dt);
   rig.torso.rotation.x = damp(rig.torso.rotation.x, torsoX, snap, dt);
