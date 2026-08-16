@@ -34,7 +34,7 @@ function Bar({
     if (!delay) { setGhost(pct); return; }
     if (pct > ghost) { setGhost(pct); return; }
     window.clearTimeout(t.current);
-    t.current = window.setTimeout(() => setGhost(pct), 420);
+    t.current = window.setTimeout(() => setGhost(pct), 380);
   }, [pct, ghost, delay]);
 
   return (
@@ -43,26 +43,27 @@ function Bar({
       style={{
         width,
         height,
-        background: "linear-gradient(180deg, rgba(6,5,4,0.94), rgba(18,15,12,0.9))",
-        border: "1px solid rgba(0,0,0,0.85)",
-        boxShadow: "0 0 0 1px rgba(196,164,102,0.22), inset 0 1px 2px rgba(0,0,0,0.9), 0 2px 10px rgba(0,0,0,0.6)",
+        background: "rgba(8,7,6,0.85)",
+        border: "1px solid rgba(196,164,102,0.14)",
+        boxShadow: `0 1px 0 rgba(255,240,200,0.04) inset, 0 0 0 1px rgba(0,0,0,0.6)`,
         borderRadius: 2,
       }}
     >
       <div
         className="absolute inset-y-0 left-0"
-        style={{ width: `${ghost}%`, background: "linear-gradient(180deg,#c8523c,#6b1d14)", opacity: 0.55, transition: "width 620ms cubic-bezier(0.16,1,0.3,1)" }}
+        style={{ width: `${ghost}%`, background: "rgba(120,40,30,0.35)", transition: "width 560ms cubic-bezier(0.16,1,0.3,1)" }}
       />
       <div
         className="absolute inset-y-0 left-0"
         style={{
           width: `${pct}%`,
           background: color,
-          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 4px rgba(0,0,0,0.55), 0 0 12px ${glow}`,
-          transition: "width 130ms linear",
+          boxShadow: `0 0 10px ${glow}`,
+          transition: "width 120ms linear",
         }}
       />
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 42%, rgba(0,0,0,0.25) 100%)" }} />
+      {/* crisp highlight */}
+      <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)" }} />
     </div>
   );
 }
@@ -243,18 +244,16 @@ export function Hud({ s }: { s: HudState }) {
         </div>
       </div>
 
-      {/* ---------- objective tracker ---------- */}
-      <div className="absolute left-6 top-[104px]">
-        <div className="flex items-center gap-2">
-          <svg width="11" height="11" viewBox="0 0 12 12" style={{ filter: "drop-shadow(0 0 6px rgba(255,214,140,0.8))" }}>
-            <path d="M6 0 L12 6 L6 12 L0 6 Z" fill="rgba(255,220,150,0.9)" />
-          </svg>
-          <span className="font-title text-[11px] tracking-[0.22em]" style={{ color: "rgba(230,204,156,0.8)", textShadow: "0 2px 6px #000" }}>
+      {/* ---------- objective tracker — clean, honorable */}
+      <div className="absolute left-6 top-[104px] max-w-[340px]">
+        <div className="flex items-center gap-2.5">
+          <div className="h-px w-5" style={{ background: "rgba(226,196,140,0.35)" }} />
+          <span className="font-title text-[10px] tracking-[0.32em]" style={{ color: "rgba(230,204,156,0.75)", textShadow: "0 1px 0 #000" }}>
             {s.objective.toUpperCase()}
           </span>
         </div>
         {s.hint && (
-          <div className="ml-[19px] mt-[3px] text-[12.5px] italic" style={{ color: "rgba(190,174,146,0.5)", textShadow: "0 2px 6px #000" }}>
+          <div className="ml-[28px] mt-[4px] text-[11.5px] italic leading-[1.4]" style={{ color: "rgba(190,174,146,0.52)", textShadow: "0 1px 0 #000" }}>
             {s.hint}
           </div>
         )}
@@ -416,15 +415,18 @@ export function Hud({ s }: { s: HudState }) {
         </div>
       )}
 
-      {/* ---------- interaction prompt ---------- */}
+      {/* ---------- interaction prompt — clean honorable pill */}
       {s.prompt && (
         <div className="absolute bottom-[27%] left-1/2 -translate-x-1/2 text-center">
           <div
-            className="px-6 py-2 font-title text-[13px] tracking-[0.28em]"
+            className="px-7 py-[9px] font-title text-[11px] tracking-[0.34em] rounded-sm"
             style={{
-              color: "#f2e2bb",
-              background: "linear-gradient(90deg, transparent, rgba(10,8,6,0.72), transparent)",
-              textShadow: "0 0 16px rgba(255,200,120,0.55)",
+              color: "#f0e2c0",
+              background: "rgba(18,16,14,0.82)",
+              border: "1px solid rgba(196,164,102,0.18)",
+              backdropFilter: "blur(12px)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,240,200,0.06)",
+              textShadow: "0 1px 0 #000",
             }}
           >
             {s.prompt}
@@ -432,16 +434,16 @@ export function Hud({ s }: { s: HudState }) {
         </div>
       )}
 
-      {/* ---------- banner ---------- */}
+      {/* ---------- banner — clean, honorable, crisp */}
       {s.banner && (
-        <div key={s.banner.id} className="anim-fade-up absolute left-1/2 top-[24%] -translate-x-1/2 text-center">
-          <div className="font-title text-[clamp(20px,3.2vw,44px)] tracking-[0.3em] gold-text glow-gold">{s.banner.title}</div>
+        <div key={s.banner.id} className="anim-banner absolute left-1/2 top-[24%] -translate-x-1/2 text-center">
+          <div className="font-title text-[clamp(20px,3.2vw,40px)] tracking-[0.42em] gold-text-clean" style={{ letterSpacing: "0.42em" }}>{s.banner.title}</div>
           {s.banner.sub && (
-            <div className="mt-2 text-[clamp(11px,1.1vw,15px)] italic tracking-[0.24em]" style={{ color: "rgba(220,196,152,0.65)" }}>
+            <div className="mt-2 text-[clamp(11px,1.05vw,14px)] italic tracking-[0.28em] font-light" style={{ color: "rgba(220,196,152,0.58)" }}>
               {s.banner.sub}
             </div>
           )}
-          <div className="mx-auto mt-4 h-px w-[min(46vw,520px)]" style={{ background: "linear-gradient(90deg,transparent,rgba(226,196,140,0.65),transparent)" }} />
+          <div className="mx-auto mt-3 h-px w-[min(36vw,380px)]" style={{ background: "linear-gradient(90deg,transparent,rgba(226,196,140,0.32),transparent)" }} />
         </div>
       )}
     </div>

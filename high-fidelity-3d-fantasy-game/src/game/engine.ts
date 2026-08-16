@@ -265,8 +265,8 @@ const GradeShader = {
   uniforms: {
     tDiffuse: { value: null as THREE.Texture | null },
     uTime: { value: 0 },
-    uAberr: { value: 0.0016 },
-    uVignette: { value: 1.05 },
+    uAberr: { value: 0.0009 }, // was 0.0016 — crisper, less chromatic
+    uVignette: { value: 0.88 }, // was 1.05 — cleaner, honorable
     uDamage: { value: 0 },
     uGrace: { value: 0 },
     uDeath: { value: 0 },
@@ -321,9 +321,9 @@ const GradeShader = {
       float vig = 1.0 - uVignette * r2 * (0.85 + r2 * 0.9);
       col *= clamp(vig, 0.0, 1.0);
 
-      // film grain
+      // film grain — cleaner, crisp, honorable (was 0.035)
       float g = hash(vUv * uRes + fract(uTime) * 411.0);
-      col += (g - 0.5) * 0.035;
+      col += (g - 0.5) * 0.018;
 
       gl_FragColor = vec4(col, 1.0);
     }`,
@@ -2057,8 +2057,13 @@ export class Game {
       if (this.comboTimer <= 0) this.resetCombo();
     }
 
-    // ---- post fx uniforms ----
-    this.damageFx += ((1 - this.player.hp / this.player.maxHp > 0.65 ? 0.4 : 0) - this.damageFx) * 0.05;
+    // ---- low HP heartbeat — honorable, crisp audio cue
+    if (this.player.hp / this.player.maxHp < 0.28 && !this.dead && this.time % 1.4 < 0.05) {
+      audio.heartbeat(0.35 + (1 - this.player.hp/this.player.maxHp)*0.6);
+    }
+
+    // ---- post fx uniforms — cleaner
+    this.damageFx += ((1 - this.player.hp / this.player.maxHp > 0.65 ? 0.28 : 0) - this.damageFx) * 0.06;
     const hurtPulse = this.player.hurtCooldown > 0 ? this.player.hurtCooldown / 0.35 : 0;
     this.graceFx = Math.max(0, this.graceFx - raw * 0.55);
     this.grade.uniforms.uTime.value = this.time;

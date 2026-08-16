@@ -490,6 +490,27 @@ export class AudioEngine {
     });
   }
 
+  heartbeat(intensity = 0.5) {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(55, t);
+    o.frequency.exponentialRampToValueAtTime(32, t+0.35);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.18*intensity, t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.6);
+    const f = ctx.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.value = 180;
+    o.connect(f).connect(g);
+    g.connect(this.sfxBus);
+    o.start(t);
+    o.stop(t+0.7);
+  }
+
   death() {
     if (!this.ctx || !this.enabled) return;
     const ctx = this.ctx;

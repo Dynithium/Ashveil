@@ -200,7 +200,7 @@ export class World {
   private emberTarget = 0;
   private ashAmt = 0;
   private emberAmt = 0;
-  private fogBase = 0.0048;
+  private fogBase = 0.0036; // cleaner, crisper — was 0.0048
   private fogColorClear = new THREE.Color(0x2a2018);
   private fogColorAsh = new THREE.Color(0x3a342c);
   private fogColorEmber = new THREE.Color(0x33201a);
@@ -266,13 +266,13 @@ export class World {
     sun.shadow.camera.right = d;
     sun.shadow.camera.top = d;
     sun.shadow.camera.bottom = -d;
-    sun.shadow.bias = -0.0008;
-    sun.shadow.normalBias = 0.035;
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.02; // crisper shadows
     this.scene.add(sun);
     this.scene.add(sun.target);
     this.sun = sun;
 
-    const hemi = new THREE.HemisphereLight(0x6a5f8c, 0x241a14, 0.75);
+    const hemi = new THREE.HemisphereLight(0x7a6f9c, 0x2a2218, 0.82); // cleaner, honorable light
     this.scene.add(hemi);
     this.hemi = hemi;
 

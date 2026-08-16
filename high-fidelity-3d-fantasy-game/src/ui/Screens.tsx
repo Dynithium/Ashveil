@@ -75,25 +75,26 @@ function MenuButton({ label, onClick, primary }: { label: string; onClick: () =>
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       onClick={onClick}
-      className="group relative block w-full py-[10px] font-title transition-all duration-300"
+      className="group relative block w-full py-[11px] font-title transition-all duration-300"
       style={{
-        fontSize: primary ? 19 : 15,
-        letterSpacing: h ? "0.44em" : "0.34em",
-        color: h ? "#fff4d8" : primary ? "rgba(232,208,158,0.92)" : "rgba(200,178,138,0.6)",
-        textShadow: h ? "0 0 26px rgba(255,200,110,0.85)" : "0 2px 8px rgba(0,0,0,0.8)",
+        fontSize: primary ? 18 : 13.5,
+        letterSpacing: h ? "0.38em" : "0.32em",
+        fontWeight: primary ? 600 : 400,
+        color: h ? "#fff2c8" : primary ? "rgba(232,208,158,0.88)" : "rgba(200,178,138,0.55)",
+        textShadow: h ? "0 1px 0 #000, 0 0 14px rgba(255,200,110,0.4)" : "0 1px 0 #000",
       }}
     >
       <span
-        className="absolute left-1/2 top-1/2 -z-10 h-[46px] w-[112%] -translate-x-1/2 -translate-y-1/2 transition-opacity duration-300"
+        className="absolute left-1/2 top-1/2 -z-10 h-[36px] w-[100%] -translate-x-1/2 -translate-y-1/2 transition-opacity duration-300"
         style={{
           opacity: h ? 1 : 0,
-          background: "radial-gradient(ellipse at center, rgba(255,190,100,0.16), transparent 70%)",
+          background: "linear-gradient(90deg, transparent, rgba(255,210,140,0.08), transparent)",
         }}
       />
       {label}
       <span
-        className="absolute bottom-[2px] left-1/2 h-px -translate-x-1/2 transition-all duration-500"
-        style={{ width: h ? "78%" : "0%", background: "linear-gradient(90deg,transparent,rgba(255,220,160,0.9),transparent)" }}
+        className="absolute bottom-[1px] left-1/2 h-px -translate-x-1/2 transition-all duration-400"
+        style={{ width: h ? "64%" : "0%", background: "rgba(226,196,140,0.5)" }}
       />
     </button>
   );
