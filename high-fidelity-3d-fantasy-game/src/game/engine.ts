@@ -1031,22 +1031,28 @@ export class Game {
 
   private onMouseDown = (e: MouseEvent) => {
     if (!this.started || this.paused) return;
-    if (document.pointerLockElement !== this.renderer.domElement) this.requestPointerLock();
+    const isLocked = document.pointerLockElement === this.renderer.domElement;
+    // when not locked, right/middle drag is for view — don't auto lock on right/middle, only on left attack
+    if (!isLocked && e.button === 0) this.requestPointerLock();
     if (this.dialogue) {
       if (e.button === 0) this.advanceDialogue();
       return;
     }
-    if (e.button === 0) { this.mouse.left = true; this.attackBuffer = 0.22; }
+    if (e.button === 0) { this.mouse.left = true; this.attackBuffer = 0.26; }
     if (e.button === 2) this.mouse.right = true;
-    if (e.button === 1) { e.preventDefault(); this.toggleLock(); }
+    if (e.button === 1) { e.preventDefault(); this.toggleLock(true); }
   };
   private onMouseUp = (e: MouseEvent) => {
     if (e.button === 0) this.mouse.left = false;
     if (e.button === 2) this.mouse.right = false;
   };
   private onMouseMove = (e: MouseEvent) => {
-    if (document.pointerLockElement !== this.renderer.domElement) return;
-    const s = this.sensitivity;
+    const isLocked = document.pointerLockElement === this.renderer.domElement;
+    const isDragging = this.mouse.left || this.mouse.right || e.buttons !== 0;
+    // when not pointer locked, allow drag-to-look — honorable fallback
+    if (!isLocked && !isDragging) return;
+    // use sensitivity, slightly higher when dragging free for crisp feel
+    const s = isLocked ? this.sensitivity : this.sensitivity * 1.15;
     this.camYaw -= e.movementX * s;
     this.camPitch = Math.max(-0.75, Math.min(0.95, this.camPitch + e.movementY * s));
   };
@@ -1126,6 +1132,39 @@ export class Game {
   }
 
   // ------------------------------------------------------------- game utils
+  private isLineBlocked(from: THREE.Vector3, to: THREE.Vector3): boolean {
+    // check against world static colliders — if any collider blocks LOS, lock fails (honorable)
+    // simple segment-sphere test in XZ plane with height check
+    const colliders = this.world.colliders;
+    const fx = from.x, fz = from.z, fy = from.y + 1.0;
+    const tx = to.x, tz = to.z, ty = to.y + 1.0;
+    const dx = tx - fx;
+    const dz = tz - fz;
+    const segLen2 = dx*dx + dz*dz;
+    if (segLen2 < 0.0001) return false;
+    for (let i=0;i<colliders.length;i++) {
+      const c = colliders[i];
+      // ignore colliders very close to target (target's own cover) and very close to player
+      const distToFrom = Math.hypot(c.x - fx, c.z - fz);
+      const distToTo = Math.hypot(c.x - tx, c.z - tz);
+      if (distToFrom < 1.2 || distToTo < 1.5) continue;
+      // closest point on segment to collider center
+      let t = ((c.x - fx)*dx + (c.z - fz)*dz) / segLen2;
+      t = Math.max(0, Math.min(1, t));
+      const cx = fx + dx*t;
+      const cz = fz + dz*t;
+      const d2 = (c.x - cx)*(c.x - cx) + (c.z - cz)*(c.z - cz);
+      if (d2 < (c.r + 0.7)*(c.r + 0.7)) {
+        // height check: if collider is much taller than line, consider blocked
+        // rough: check average Y
+        const lineY = fy + (ty - fy)*t;
+        // assume collider height ~ 3m if not specified, block if lineY < 2.5 and near
+        if (lineY < 3.2) return true;
+      }
+    }
+    return false;
+  }
+
   private toggleLock(forceLock = false) {
     if (this.lockTarget && !forceLock) { this.lockTarget = null; audio.ui("hover"); this.emit(); return; }
 
@@ -1133,14 +1172,17 @@ export class Game {
     let bestScore = -Infinity;
     const fwd = new THREE.Vector3(Math.sin(this.camYaw), 0, Math.cos(this.camYaw));
     const to = new THREE.Vector3();
+    const fromPos = new THREE.Vector3(this.player.pos.x, this.player.pos.y + 1.0, this.player.pos.z);
 
-    // Pass 1: in front, within 42m, scored by dot + distance — normal lock
+    // Pass 1: in front, within 42m, scored by dot + distance — normal lock, but must be visible
     for (const e of this.enemies) {
       if (e.dead) continue;
       to.subVectors(e.pos, this.player.pos).setY(0);
       const d = to.length();
       if (d > 42) continue;
       if (d < 0.5) continue;
+      // blocked check — honorable: don't lock through walls
+      if (this.isLineBlocked(fromPos, new THREE.Vector3(e.pos.x, e.pos.y + 1.0, e.pos.z))) continue;
       to.normalize();
       const dot = to.dot(fwd);
       if (dot < 0.05) continue;
@@ -1148,7 +1190,7 @@ export class Game {
       if (score > bestScore) { bestScore = score; best = e; }
     }
 
-    // Pass 2: if nothing in front, grab nearest within 30m regardless of facing — works without pointer lock
+    // Pass 2: if nothing in front, grab nearest within 30m regardless of facing — works without pointer lock, still checks block
     if (!best) {
       let nearestD = 999;
       for (const e of this.enemies) {
@@ -1156,18 +1198,21 @@ export class Game {
         to.subVectors(e.pos, this.player.pos).setY(0);
         const d = to.length();
         if (d > 30) continue;
+        if (this.isLineBlocked(fromPos, new THREE.Vector3(e.pos.x, e.pos.y + 1.0, e.pos.z))) continue;
         if (d < nearestD) { nearestD = d; best = e; }
       }
     }
 
-    // Pass 3: if still nothing, grab any aggro'd boss within 80m
+    // Pass 3: if still nothing, grab any aggro'd boss within 80m if visible
     if (!best) {
       for (const e of this.enemies) {
         if (e.dead || e.kind !== "boss") continue;
         if (!e.aggro) continue;
         to.subVectors(e.pos, this.player.pos).setY(0);
         const d = to.length();
-        if (d < 80) { best = e; break; }
+        if (d >= 80) continue;
+        if (this.isLineBlocked(fromPos, new THREE.Vector3(e.pos.x, e.pos.y + 1.0, e.pos.z))) continue;
+        best = e; break;
       }
     }
 
@@ -1177,7 +1222,7 @@ export class Game {
       this.showBanner(best.name, "Locked — press TAB/T/V to unlock");
     } else {
       audio.ui("hover");
-      if (forceLock) this.showBanner("NO TARGET", "No enemies nearby");
+      if (forceLock) this.showBanner("NO TARGET", "No clear line — blocked or none nearby");
     }
     this.emit();
   }
