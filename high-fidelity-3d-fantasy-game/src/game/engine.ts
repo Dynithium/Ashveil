@@ -1046,7 +1046,7 @@ export class Game {
   };
   private onMouseMove = (e: MouseEvent) => {
     if (document.pointerLockElement !== this.renderer.domElement) return;
-    const s = 0.0022;
+    const s = this.sensitivity;
     this.camYaw -= e.movementX * s;
     this.camPitch = Math.max(-0.75, Math.min(0.95, this.camPitch + e.movementY * s));
   };
@@ -1250,7 +1250,7 @@ export class Game {
       player: this.player,
       enemies: this.enemies,
       resolve: (x, z, r) => this.world.resolveColliders(x, z, r),
-      shake: (a, d = 0.3) => { this.shakeAmt = Math.max(this.shakeAmt, a); this.shakeT = Math.max(this.shakeT, d); },
+      shake: (a, d = 0.3) => { const s = a * this.shakeIntensity; this.shakeAmt = Math.max(this.shakeAmt, s); this.shakeT = Math.max(this.shakeT, d); },
       hitStop: (d) => { this.hitStopT = Math.max(this.hitStopT, d); },
       popup: (pos, text, kind) => this.addPopup(pos, text, kind),
       spawnProjectile: (o) => this.spawnProjectile(o),

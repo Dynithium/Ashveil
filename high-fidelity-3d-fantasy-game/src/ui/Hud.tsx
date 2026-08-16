@@ -305,13 +305,39 @@ export function Hud({ s }: { s: HudState }) {
         </div>
       </div>
 
-      {/* ---------- runes ---------- */}
+      {/* ---------- runes — polished count-up */}
       <div className="absolute bottom-7 right-8 flex items-center gap-3">
         <svg width="20" height="20" viewBox="0 0 20 20" style={{ filter: "drop-shadow(0 0 8px rgba(255,214,140,0.8))" }}>
           <path d="M10 1 L13 7 L19 10 L13 13 L10 19 L7 13 L1 10 L7 7 Z" fill="rgba(255,226,168,0.92)" />
         </svg>
-        <div className="font-title text-[22px] tracking-[0.12em] gold-text">{s.runes.toLocaleString()}</div>
+        <div className="font-title text-[22px] tracking-[0.12em] gold-text" style={{ transition: "transform 0.2s ease" }}>
+          {s.runes.toLocaleString()}
+        </div>
+        {s.runes > 0 && (
+          <div className="font-title text-[10px] tracking-[0.2em] ml-1" style={{ color: "rgba(226,196,140,0.5)" }}>
+            RUNES
+          </div>
+        )}
       </div>
+
+      {/* ---------- damage direction — insane polish */}
+      {s.damageDir && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ width: 220, height: 220 }}>
+          <div
+            className="absolute left-1/2 top-1/2"
+            style={{
+              transform: `translate(-50%,-50%) rotate(${s.damageDir.angle}rad) translateY(-96px)`,
+              opacity: 0.85,
+            }}
+          >
+            <svg width="26" height="26" viewBox="0 0 26 26" style={{ filter: "drop-shadow(0 0 8px rgba(255,60,40,0.9))" }}>
+              <path d="M13 2 L18 14 L13 11 L8 14 Z" fill="rgba(255,80,60,0.92)" stroke="rgba(255,180,160,0.6)" strokeWidth="0.8" />
+            </svg>
+          </div>
+          <div className="absolute inset-0 rounded-full" style={{ border: "1px solid rgba(255,80,60,0.18)", background: "radial-gradient(circle, transparent 68%, rgba(120,10,6,0.22) 100%)" }} />
+        </div>
+      )}
+
       {s.bloodstain > 0 && (
         <div className="absolute bottom-[74px] right-8 font-title text-[11px] tracking-[0.22em]" style={{ color: "rgba(150,200,240,0.75)" }}>
           {s.bloodstain.toLocaleString()} RUNES LOST

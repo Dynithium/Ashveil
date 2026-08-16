@@ -458,6 +458,9 @@ export interface PoseInput {
   hunched?: boolean;
   guard?: boolean;
   weapon?: string;
+  lookYaw?: number; // radians, head horizontal look
+  lookPitch?: number; // radians, head vertical look
+  footLock?: boolean; // for foot IK polish
 }
 
 /** Smoothly drives all joints toward the pose defined by the current state. */
@@ -502,15 +505,17 @@ export function poseRig(rig: Rig, p: PoseInput) {
     shLZ = 0.24 + p.speed * 0.18;
     shRZ = -0.24 - p.speed * 0.18;
   } else if (p.state === "idle") {
-    hipsY = Math.sin(t * 1.5) * 0.014;
-    torsoX += Math.sin(t * 1.5) * 0.018;
-    headY = Math.sin(t * 0.42) * 0.24;
-    shLZ = 0.22 + Math.sin(t * 1.5 + 1) * 0.02;
-    shRZ = -0.22 - Math.sin(t * 1.5) * 0.02;
-    elLX = -0.42;
-    elRX = -0.55;
-    hLX = -0.03;
-    hRX = 0.05;
+    hipsY = Math.sin(t * 1.5) * 0.014 + Math.sin(t * 0.9) * 0.006;
+    torsoX += Math.sin(t * 1.5) * 0.018 + Math.sin(t * 0.7) * 0.008;
+    torsoZ += Math.sin(t * 0.55) * 0.015;
+    headY = Math.sin(t * 0.42) * 0.24 + Math.sin(t * 0.31) * 0.08;
+    headX += Math.sin(t * 0.8) * 0.03;
+    shLZ = 0.22 + Math.sin(t * 1.5 + 1) * 0.02 + Math.sin(t * 0.6) * 0.01;
+    shRZ = -0.22 - Math.sin(t * 1.5) * 0.02 - Math.sin(t * 0.6) * 0.01;
+    elLX = -0.42 + Math.sin(t * 1.1) * 0.02;
+    elRX = -0.55 + Math.sin(t * 1.1 + 0.5) * 0.02;
+    hLX = -0.03 + Math.sin(t * 0.7) * 0.01;
+    hRX = 0.05 + Math.sin(t * 0.7 + 1) * 0.01;
     kLX = -0.06;
     kRX = -0.06;
   } else if (p.state === "attack" && p.weapon === "twinblades") {
@@ -728,6 +733,17 @@ export function poseRig(rig: Rig, p: PoseInput) {
   rig.torso.rotation.x = damp(rig.torso.rotation.x, torsoX, snap, dt);
   rig.torso.rotation.y = damp(rig.torso.rotation.y, torsoY, snap, dt);
   rig.torso.rotation.z = damp(rig.torso.rotation.z, torsoZ, snap, dt);
+  // insane polish: head tracking — blend in lookYaw/lookPitch if provided
+  if (p.lookYaw !== undefined) {
+    headY += p.lookYaw * 0.85;
+  }
+  if (p.lookPitch !== undefined) {
+    headX += p.lookPitch * 0.7;
+  }
+  // clamp head to avoid exorcist
+  headY = Math.max(-0.9, Math.min(0.9, headY));
+  headX = Math.max(-0.6, Math.min(0.55, headX));
+
   rig.head.rotation.x = damp(rig.head.rotation.x, headX, k, dt);
   rig.head.rotation.y = damp(rig.head.rotation.y, headY, k, dt);
 

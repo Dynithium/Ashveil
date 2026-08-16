@@ -24,6 +24,12 @@ const EMPTY: HudState = {
   victoryShown: false,
   victoryName: "MALENKAR, THE SUNDERED FLAME",
   quality: (typeof localStorage !== "undefined" && (localStorage.getItem("ashveil_quality") as any)) || "medium",
+  combo: 0,
+  damageDir: null,
+  fov: parseFloat((typeof localStorage !== "undefined" && localStorage.getItem("ashveil_fov")) || "58"),
+  sensitivity: parseFloat((typeof localStorage !== "undefined" && localStorage.getItem("ashveil_sens")) || "0.0022"),
+  grain: (typeof localStorage !== "undefined" && (localStorage.getItem("ashveil_grain") ?? "true")) === "true",
+  shake: parseFloat((typeof localStorage !== "undefined" && localStorage.getItem("ashveil_shake")) || "1"),
   paused: false,
   started: false,
   area: "Kingsfall Keep",
@@ -51,10 +57,13 @@ function LoadingVeil({ done }: { done: boolean }) {
       style={{ background: "#050406", opacity: done ? 0 : 1 }}
     >
       <div className="text-center">
-        <div className="font-title text-[13px] tracking-[0.6em] anim-pulse-slow" style={{ color: "rgba(226,196,140,0.7)" }}>
+        <div className="font-title text-[13px] tracking-[0.6em] anim-pulse-slow anim-gold-shimmer" style={{ color: "rgba(226,196,140,0.7)" }}>
           FORGING THE ASHVEIL
         </div>
         <div className="mt-4 h-px w-[240px]" style={{ background: "linear-gradient(90deg,transparent,rgba(226,196,140,0.55),transparent)" }} />
+        <div className="mt-3 font-title text-[9px] tracking-[0.4em]" style={{ color: "rgba(180,150,120,0.3)" }}>
+          ZERO ASSETS · ONLY MATH · 60 FPS TARGET
+        </div>
       </div>
     </div>
   );
@@ -126,47 +135,31 @@ export default function App() {
 
   const closeMap = useCallback(() => gameRef.current?.toggleMap(), []);
   const travel = useCallback((idx: number) => gameRef.current?.fastTravel(idx), []);
-  const setQuality = useCallback((q: QualityLevel) => {
-    gameRef.current?.setQuality(q);
-  }, []);
+  const setQuality = useCallback((q: QualityLevel) => gameRef.current?.setQuality(q), []);
+  const setFov = useCallback((v: number) => gameRef.current?.setFov(v), []);
+  const setSens = useCallback((v: number) => gameRef.current?.setSensitivity(v), []);
+  const setGrain = useCallback((b: boolean) => gameRef.current?.setGrainEnabled(b), []);
+  const setShake = useCallback((v: number) => gameRef.current?.setShakeIntensity(v), []);
+  const benchmark = useCallback(() => gameRef.current?.benchmarkQuality(), []);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
       <div ref={mountRef} className="absolute inset-0" />
-
-      {/* film grain over the render */}
-      <div className="grain pointer-events-none absolute inset-0 z-10 opacity-[0.045] mix-blend-overlay" />
-
+      {hud.grain && <div className="grain pointer-events-none absolute inset-0 z-10 opacity-[0.045] mix-blend-overlay" />}
       {hud.started && !hud.victoryShown && <Hud s={hud} />}
-
-      {hud.started && hud.dead && (
-        <div className="absolute inset-0 z-20">
-          <DeathScreen />
-        </div>
-      )}
-
-      {hud.started && hud.victoryShown && (
-        <div className="absolute inset-0 z-30">
-          <VictoryScreen runes={hud.runes} name={hud.victoryName} onContinue={continueAfterVictory} />
-        </div>
-      )}
-
-      {hud.started && hud.mapOpen && !hud.dead && !hud.victoryShown && (
-        <MapScreen s={hud} onClose={closeMap} onTravel={travel} />
-      )}
-
+      {hud.started && hud.dead && <div className="absolute inset-0 z-20"><DeathScreen /></div>}
+      {hud.started && hud.victoryShown && <div className="absolute inset-0 z-30"><VictoryScreen runes={hud.runes} name={hud.victoryName} onContinue={continueAfterVictory} /></div>}
+      {hud.started && hud.mapOpen && !hud.dead && !hud.victoryShown && <MapScreen s={hud} onClose={closeMap} onTravel={travel} />}
       {hud.started && hud.paused && !hud.victoryShown && (
         <div className="absolute inset-0 z-40">
-          <PauseScreen onResume={resume} onQuit={quit} audioOn={audioOn} onToggleAudio={toggleAudio} runes={hud.runes} quality={hud.quality} onSetQuality={setQuality} />
+          <PauseScreen onResume={resume} onQuit={quit} audioOn={audioOn} onToggleAudio={toggleAudio} runes={hud.runes} quality={hud.quality} onSetQuality={setQuality} fov={hud.fov} sensitivity={hud.sensitivity} grain={hud.grain} shake={hud.shake} onSetFov={setFov} onSetSensitivity={setSens} onSetGrain={setGrain} onSetShake={setShake} onBenchmark={benchmark} />
         </div>
       )}
-
       {!hud.started && (
         <div className="absolute inset-0 z-30">
-          <TitleScreen onStart={start} audioOn={audioOn} onToggleAudio={toggleAudio} quality={hud.quality} onSetQuality={setQuality} />
+          <TitleScreen onStart={start} audioOn={audioOn} onToggleAudio={toggleAudio} quality={hud.quality} onSetQuality={setQuality} fov={hud.fov} sensitivity={hud.sensitivity} grain={hud.grain} shake={hud.shake} onSetFov={setFov} onSetSensitivity={setSens} onSetGrain={setGrain} onSetShake={setShake} onBenchmark={benchmark} />
         </div>
       )}
-
       <LoadingVeil done={ready} />
     </div>
   );

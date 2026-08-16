@@ -499,7 +499,16 @@ export class Player extends Actor {
       this.rig.root.position.copy(this.pos);
       this.rig.root.rotation.y = this.yaw;
       this.speedBlend += ((wantMove ? 1 : 0) - this.speedBlend) * Math.min(1, dt * 8);
-      poseRig(this.rig, { dt, time: ctx.time, speed: this.speedBlend, state: wantMove ? "locomotion" : "idle", phase: this.phase, combo: this.comboIndex, weapon: this.weaponKind });
+      // head tracks movement direction or lock target
+      let lookYaw: number | undefined;
+      let lookPitch: number | undefined;
+      if (input.faceYaw !== null) {
+        let d = ((input.faceYaw - this.yaw + Math.PI) % (2*Math.PI)) - Math.PI;
+        if (d < -Math.PI) d += Math.PI*2;
+        lookYaw = Math.max(-0.9, Math.min(0.9, d * 0.6));
+        lookPitch = 0;
+      }
+      poseRig(this.rig, { dt, time: ctx.time, speed: this.speedBlend, state: wantMove ? "locomotion" : "idle", phase: this.phase, combo: this.comboIndex, weapon: this.weaponKind, lookYaw, lookPitch });
       this.resolveAttack(ctx);
       this.resolveCast(ctx);
       this.aura.color.setHex(0xffd27a);
@@ -582,6 +591,19 @@ export class Player extends Actor {
 
     // ------------------------- animation -----------------------------------
     this.speedBlend += (speedTarget - this.speedBlend) * Math.min(1, dt * 8);
+    let lookYaw: number | undefined;
+    let lookPitch: number | undefined;
+    if (input.faceYaw !== null) {
+      let d = ((input.faceYaw - this.yaw + Math.PI) % (2*Math.PI)) - Math.PI;
+      if (d < -Math.PI) d += Math.PI*2;
+      lookYaw = Math.max(-0.85, Math.min(0.85, d*0.55));
+      // look slightly up if target is higher
+      const to = ctx.player ? undefined : undefined; // keep placeholder
+    } else if (this.state === "idle") {
+      // idle looks around a bit
+      lookYaw = Math.sin(ctx.time*0.3)*0.25;
+      lookPitch = Math.sin(ctx.time*0.5)*0.08;
+    }
     poseRig(this.rig, {
       dt, time: ctx.time,
       speed: this.speedBlend,
@@ -589,6 +611,7 @@ export class Player extends Actor {
       phase: this.phase,
       combo: this.comboIndex,
       weapon: this.weaponKind,
+      lookYaw, lookPitch,
     });
 
     // ------------------------- combat resolution ---------------------------
@@ -1008,6 +1031,17 @@ export class NPC extends Actor {
     if (this.state === "attack" && this.move) {
       animState = this.move.name === "nova" || this.move.name === "meteor" || this.move.name === "flamewave" ? "cast" : this.move.name === "combo" ? "attack" : "heavy";
     }
+    // NPC head tracks player when aggro
+    let npcLookYaw: number | undefined;
+    let npcLookPitch: number | undefined;
+    if (this.aggro && !this.dead) {
+      const to = ctx.player.pos.clone().sub(this.pos);
+      const targetYaw = Math.atan2(to.x, to.z);
+      let d = ((targetYaw - this.yaw + Math.PI) % (2*Math.PI)) - Math.PI;
+      if (d < -Math.PI) d += Math.PI*2;
+      npcLookYaw = Math.max(-0.8, Math.min(0.8, d*0.5));
+      npcLookPitch = Math.max(-0.4, Math.min(0.4, (to.y*0.12)));
+    }
     poseRig(this.rig, {
       dt, time: ctx.time,
       speed: this.speedBlend,
@@ -1015,6 +1049,8 @@ export class NPC extends Actor {
       phase: this.state === "attack" && this.move ? this.phase : this.phase,
       combo: Math.floor(this.stateTime * 3) % 3,
       hunched: this.kind === "wretch",
+      lookYaw: npcLookYaw,
+      lookPitch: npcLookPitch,
     });
 
     if (this.trail) {
