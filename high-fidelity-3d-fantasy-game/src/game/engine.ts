@@ -456,6 +456,10 @@ export class Game {
   private qualityCooldown = 3;
   qualityLevel: QualityLevel = (typeof localStorage !== "undefined" && localStorage.getItem("ashveil_quality") as QualityLevel) || "medium";
   private qualityManual = typeof localStorage !== "undefined" && !!localStorage.getItem("ashveil_quality");
+  fov: number = parseFloat(localStorage.getItem("ashveil_fov") || "58");
+  sensitivity: number = parseFloat(localStorage.getItem("ashveil_sens") || "0.0022");
+  grainEnabled: boolean = (localStorage.getItem("ashveil_grain") ?? "true") === "true";
+  shakeIntensity: number = parseFloat(localStorage.getItem("ashveil_shake") || "1");
   private lightPool: THREE.PointLight[] = [];
   private lightBusy: boolean[] = [];
   effigies: NPC[] = [];
@@ -492,6 +496,11 @@ export class Game {
   private bannerT = 0;
   bloodstain: { pos: THREE.Vector3; runes: number; mesh: THREE.Mesh } | null = null;
   private prompt: string | null = null;
+  // honor system — truly honorable
+  honor = 0;
+  honorBest = 0;
+  private bowT = 0;
+  private bowCooldown = 0;
   // combo system
   private comboCount = 0;
   private comboTimer = 0;
@@ -516,6 +525,7 @@ export class Game {
   private castBuffer = 0;
   private healBuffer = 0;
   private interactBuffer = 0;
+  private bowBuffer = 0;
 
   private listeners: Listener[] = [];
   private container: HTMLElement;
@@ -949,6 +959,7 @@ export class Game {
     if (k === "r") this.healBuffer = 0.22;
     if (k === "f") this.interactBuffer = 0.3;
     if (k === "tab" || k === "t" || k === "v") { e.preventDefault(); if (this.started && !this.paused && !this.dead && !this.victoryShown && (document as any).pointerLockElement !== this.renderer.domElement) { this.requestPointerLock(); } if (this.paused) { this.setPaused(false); window.setTimeout(() => this.toggleLock(true), 80); } else { this.toggleLock(true); } }
+    if (k === "b") { e.preventDefault(); this.bowBuffer = 0.36; }
     if (k === "escape") { if (this.mapOpen) this.toggleMap(); else this.setPaused(!this.paused); }
     if (k === "h") this.toggleGodMode();
     if (k === "m") this.toggleMap();
@@ -1027,6 +1038,58 @@ export class Game {
     this.showBanner(preset.label, preset.desc);
     this.emit();
   }
+
+  bow() {
+    if (this.bowCooldown > 0 || this.dead || this.dialogue || !this.player.canAct()) return;
+    this.bowT = 1.4;
+    this.bowCooldown = 3.0;
+    this.player.setState("grace", 1.35);
+    this.player.stamina = Math.min(this.player.maxStamina, this.player.stamina + 12);
+    audio.ui("click");
+    this.showBanner("HONORABLE BOW", "You kneel — foes pause in respect");
+    for (const e of this.enemies) {
+      if (e.dead || e.dormant) continue;
+      const d = Math.hypot(e.pos.x - this.player.pos.x, e.pos.z - this.player.pos.z);
+      if (d < 12 && e.kind !== "boss") {
+        (e as any).honorPaused = 2.6;
+        e.aggro = false;
+        e.vel.multiplyScalar(0.2);
+      } else if (d < 18 && e.kind === "boss") {
+        (e as any).honorPaused = 1.2;
+      }
+    }
+    this.honor++;
+    if (this.honor > this.honorBest) this.honorBest = this.honor;
+    this.graceFx = 0.6;
+    this.emit();
+  }
+
+  setFov(v: number) {
+    this.fov = Math.max(45, Math.min(85, v));
+    this.camera.fov = this.fov;
+    this.camera.updateProjectionMatrix();
+    try { localStorage.setItem("ashveil_fov", String(this.fov)); } catch {}
+    this.emit();
+  }
+
+  setSensitivity(v: number) {
+    this.sensitivity = Math.max(0.0005, Math.min(0.006, v));
+    try { localStorage.setItem("ashveil_sens", String(this.sensitivity)); } catch {}
+    this.emit();
+  }
+
+  setGrainEnabled(b: boolean) {
+    this.grainEnabled = b;
+    try { localStorage.setItem("ashveil_grain", String(b)); } catch {}
+    this.emit();
+  }
+
+  setShakeIntensity(v: number) {
+    this.shakeIntensity = Math.max(0, Math.min(2, v));
+    try { localStorage.setItem("ashveil_shake", String(v)); } catch {}
+    this.emit();
+  }
+
   private onKeyUp = (e: KeyboardEvent) => { this.keys[e.key.toLowerCase()] = false; };
 
   private onMouseDown = (e: MouseEvent) => {
@@ -1463,6 +1526,15 @@ export class Game {
   // ------------------------------------------------------------------ flow
   private handleKill(npc: NPC) {
     this.player.runes += npc.runeValue;
+    const honorable = this.lockTarget === npc && !(npc as any).honorPaused;
+    if (honorable) {
+      this.honor += npc.kind === "boss" ? 5 : 2;
+      if (this.honor > this.honorBest) this.honorBest = this.honor;
+      this.addPopup(npc.pos.clone().setY(npc.pos.y + 2.2), `+${npc.kind==="boss"?5:2} HONOR`, "parry");
+      if (npc.kind === "boss") {
+        this.showBanner("HONORABLE VICTORY", `${npc.name} fell in fair duel`);
+      }
+    }
 
     // ---- tutorial progression ----
     if (npc.tutorialTag === "blade") {
@@ -1850,6 +1922,7 @@ export class Game {
     this.castBuffer = Math.max(0, this.castBuffer - dt);
     this.healBuffer = Math.max(0, this.healBuffer - dt);
     this.interactBuffer = Math.max(0, this.interactBuffer - dt);
+    this.bowBuffer = Math.max(0, this.bowBuffer - dt);
 
     const canAct = this.player.canAct();
     const attack = this.attackBuffer > 0 && canAct;
@@ -1868,10 +1941,13 @@ export class Game {
       faceYaw = Math.atan2(this.lockTarget.pos.x - this.player.pos.x, this.lockTarget.pos.z - this.player.pos.z);
     }
 
+    const bow = this.bowBuffer > 0 && canAct;
+    if (bow) this.bowBuffer = 0;
+
     return {
       moveX: mx, moveZ: mz,
       sprint: !!k["shift"],
-      attack, heavy, roll, cast, heal,
+      attack, heavy, roll, cast, heal, bow,
       guard: this.mouse.right,
       camYaw: this.camYaw + Math.PI,
       faceYaw,
@@ -1947,6 +2023,54 @@ export class Game {
     // ---- player ----
     const input = this.buildInput(raw);
     this.player.update(input, ctx);
+
+    if ((input as any).bow) {
+      this.bow();
+    }
+
+    if (this.bowT > 0) this.bowT -= raw;
+    if (this.bowCooldown > 0) this.bowCooldown -= raw;
+
+    if (this.lockTarget && !this.lockTarget.dead) {
+      for (const e of this.enemies) {
+        if (e === this.lockTarget || e.dead || e.dormant) continue;
+        const d = Math.hypot(e.pos.x - this.lockTarget.pos.x, e.pos.z - this.lockTarget.pos.z);
+        if (d < 12) {
+          (e as any).moveCooldown = Math.max((e as any).moveCooldown || 0, 0.6);
+          e.vel.multiplyScalar(0.92);
+        }
+      }
+    }
+
+    if ((this.player.state === "attack" || this.player.state === "heavy") && this.player.stateTime > 0.18 && this.player.stateTime < 0.55) {
+      for (const e of this.enemies) {
+        if (e.dead || e.dormant) continue;
+        if (e.state !== "attack") continue;
+        const dist = Math.hypot(e.pos.x - this.player.pos.x, e.pos.z - this.player.pos.z);
+        if (dist > 2.8) continue;
+        const toE = Math.atan2(e.pos.x - this.player.pos.x, e.pos.z - this.player.pos.z);
+        const facingDiff = Math.abs(((toE - this.player.yaw + Math.PI) % (2*Math.PI)) - Math.PI);
+        const eFacingDiff = Math.abs(((toE + Math.PI - e.yaw + Math.PI) % (2*Math.PI)) - Math.PI);
+        if (facingDiff < 0.9 && eFacingDiff < 0.9) {
+          const mid = new THREE.Vector3().addVectors(this.player.pos, e.pos).multiplyScalar(0.5);
+          mid.y += 1.2;
+          this.particles.emit({ x: mid.x, y: mid.y, z: mid.z, count: 32, speed: 7, size: 6, life: 0.45, color: 0xffe9b0, grav: -2 });
+          this.waves.spawn(mid.clone(), 0xffe9b0, 2.4, 0.35, false);
+          this.shakeAmt = Math.max(this.shakeAmt, 0.55);
+          this.shakeT = Math.max(this.shakeT, 0.22);
+          this.hitStopT = Math.max(this.hitStopT, 0.06);
+          audio.parry();
+          this.showBanner("HONORABLE CLASH", "Steel meets steel");
+          this.honor++;
+          if (e.poise < e.maxPoise * 0.7) e.setState("hurt", 0.42);
+          this.player.setState("hurt", 0.28);
+          e.vel.set(0,0,0);
+          this.player.vel.multiplyScalar(0.1);
+          break;
+        }
+      }
+    }
+
 
     // ---- enemies ----
     let alive = 0;

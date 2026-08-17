@@ -3,16 +3,17 @@ import { QUALITY_PRESETS, QUALITY_ORDER, type QualityLevel } from "../game/engin
 
 const CONTROLS: [string, string][] = [
   ["W A S D", "Move"],
-  ["Mouse", "Look / Camera"],
+  ["Mouse", "Look / Camera — drag when not pointer locked"],
   ["Shift", "Sprint"],
-  ["Space", "Dodge Roll · i-frames"],
-  ["Left Click", "Light Attack (3-hit chain)"],
+  ["Space", "Dodge Roll · i-frames — crisp 0.58s"],
+  ["Left Click", "Light Attack — tight window"],
   ["E", "Heavy Attack · breaks poise"],
-  ["Right Click (hold)", "Guard · tap to Parry"],
+  ["Right Click (hold)", "Guard · tap to Parry — perfect if <0.12s"],
   ["Q", "Cast — Sundered Bolt"],
   ["R", "Sacred Flask (heal)"],
+  ["B", "Honorable Bow — foes pause in respect"],
   ["1 / 2 / 3", "Greatsword · Twin Blades · Halberd"],
-  ["Tab / T / V / Middle Click", "Lock On / Off — works even without pointer lock"],
+  ["Tab / T / V / Middle Click", "Lock On — respects walls, works without pointer lock"],
   ["M", "World Map · Fast Travel"],
   ["F", "Talk · Rest at Grace · Read Stones"],
   ["Esc", "Pause"],
@@ -103,73 +104,153 @@ function MenuButton({ label, onClick, primary }: { label: string; onClick: () =>
 function QualitySelector({
   current,
   onSet,
+  fov,
+  sensitivity,
+  grain,
+  shake,
+  onSetFov,
+  onSetSensitivity,
+  onSetGrain,
+  onSetShake,
+  onBenchmark,
 }: {
   current: QualityLevel;
   onSet: (q: QualityLevel) => void;
+  fov?: number;
+  sensitivity?: number;
+  grain?: boolean;
+  shake?: number;
+  onSetFov?: (v: number) => void;
+  onSetSensitivity?: (v: number) => void;
+  onSetGrain?: (b: boolean) => void;
+  onSetShake?: (v: number) => void;
+  onBenchmark?: () => void;
 }) {
   return (
-    <div className="mt-4 p-4 text-left" style={{ border: "1px solid rgba(196,164,102,0.18)", background: "rgba(0,0,0,0.35)" }}>
-      <div className="font-title mb-3 text-[11px] tracking-[0.32em]" style={{ color: "rgba(226,196,140,0.7)" }}>
-        VISUAL FIDELITY — {QUALITY_PRESETS[current].label} · {QUALITY_PRESETS[current].short}
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-        {QUALITY_ORDER.map((q) => {
-          const p = QUALITY_PRESETS[q];
-          const active = q === current;
-          return (
-            <button
-              key={q}
-              onClick={() => onSet(q)}
-              className="group relative p-[10px] text-left transition-all duration-300"
-              style={{
-                border: active ? "1px solid rgba(255,220,150,0.7)" : "1px solid rgba(180,150,100,0.14)",
-                background: active
-                  ? "linear-gradient(180deg, rgba(70,45,20,0.7), rgba(30,18,8,0.8))"
-                  : "linear-gradient(180deg, rgba(18,14,10,0.6), rgba(8,6,5,0.7))",
-                boxShadow: active ? "0 0 18px rgba(255,180,90,0.35), inset 0 0 20px rgba(255,200,120,0.08)" : "none",
-              }}
-            >
-              <div className="font-title text-[11px] tracking-[0.22em]" style={{ color: active ? "#ffe9b0" : "rgba(200,178,138,0.7)" }}>
-                {p.label}
-              </div>
-              <div className="mt-1 text-[9px] tracking-[0.18em]" style={{ color: active ? "rgba(255,220,150,0.8)" : "rgba(170,140,95,0.45)" }}>
-                {p.short}
-              </div>
-              <div className="mt-2 text-[10px] leading-[1.3]" style={{ color: "rgba(198,182,156,0.45)" }}>
-                {p.desc}
-              </div>
-              <div className="mt-2 text-[9px]" style={{ color: "rgba(150,130,100,0.4)" }}>
-                {p.shadows ? `${p.shadowSize}px shadows` : "No shadows"} · {p.bloom ? `Bloom ${p.bloom}` : "No bloom"} · DPR {p.pixelRatio}
-              </div>
-              {active && (
-                <div className="absolute right-2 top-2">
-                  <div className="h-2 w-2 rounded-full" style={{ background: "#ffd47a", boxShadow: "0 0 8px rgba(255,212,122,0.9)" }} />
-                </div>
-              )}
+    <div className="mt-4 p-4 text-left space-y-4 panel-clean">
+      <div>
+        <div className="font-title mb-3 text-[11px] tracking-[0.32em] flex justify-between" style={{ color: "rgba(226,196,140,0.7)" }}>
+          <span>VISUAL FIDELITY — {QUALITY_PRESETS[current].label} · {QUALITY_PRESETS[current].short}</span>
+          {onBenchmark && (
+            <button onClick={onBenchmark} className="font-title text-[9px] tracking-[0.2em] px-2 py-1" style={{ border: "1px solid rgba(180,150,100,0.3)", color: "rgba(226,196,140,0.8)" }}>
+              AUTO-DETECT
             </button>
-          );
-        })}
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+          {QUALITY_ORDER.map((q) => {
+            const p = QUALITY_PRESETS[q];
+            const active = q === current;
+            return (
+              <button
+                key={q}
+                onClick={() => onSet(q)}
+                className="group relative p-[10px] text-left transition-all duration-300 hover:scale-[1.02]"
+                style={{
+                  border: active ? "1px solid rgba(255,220,150,0.7)" : "1px solid rgba(180,150,100,0.14)",
+                  background: active
+                    ? "linear-gradient(180deg, rgba(70,45,20,0.7), rgba(30,18,8,0.8))"
+                    : "linear-gradient(180deg, rgba(18,14,10,0.6), rgba(8,6,5,0.7))",
+                  boxShadow: active ? "0 0 18px rgba(255,180,90,0.35), inset 0 0 20px rgba(255,200,120,0.08)" : "none",
+                }}
+              >
+                <div className="font-title text-[11px] tracking-[0.22em]" style={{ color: active ? "#ffe9b0" : "rgba(200,178,138,0.7)" }}>
+                  {p.label}
+                </div>
+                <div className="mt-1 text-[9px] tracking-[0.18em]" style={{ color: active ? "rgba(255,220,150,0.8)" : "rgba(170,140,95,0.45)" }}>
+                  {p.short}
+                </div>
+                <div className="mt-2 text-[10px] leading-[1.3]" style={{ color: "rgba(198,182,156,0.45)" }}>
+                  {p.desc}
+                </div>
+                <div className="mt-2 text-[9px]" style={{ color: "rgba(150,130,100,0.4)" }}>
+                  {p.shadows ? `${p.shadowSize}px shadows` : "No shadows"} · {p.bloom ? `Bloom ${p.bloom}` : "No bloom"} · DPR {p.pixelRatio}
+                </div>
+                {active && (
+                  <div className="absolute right-2 top-2">
+                    <div className="h-2 w-2 rounded-full" style={{ background: "#ffd47a", boxShadow: "0 0 8px rgba(255,212,122,0.9)" }} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="mt-3 text-[10px] italic" style={{ color: "rgba(190,170,140,0.4)" }}>
-        Changes apply instantly. Ultra Low disables shadows/mist/bloom for max FPS. X-High forces native DPR up to 2× and 2k shadows. Lock-on works with TAB/T/V even without pointer lock.
+
+      {(onSetFov || onSetSensitivity || onSetGrain !== undefined) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2" style={{ borderTop: "1px dashed rgba(180,150,100,0.12)" }}>
+          {onSetFov && fov !== undefined && (
+            <div>
+              <div className="flex justify-between font-title text-[10px] tracking-[0.2em]" style={{ color: "rgba(200,178,138,0.7)" }}>
+                <span>FOV</span><span>{fov.toFixed(0)}°</span>
+              </div>
+              <input type="range" min={45} max={85} step={1} value={fov} onChange={e=>onSetFov(parseFloat(e.target.value))} className="w-full mt-1" />
+            </div>
+          )}
+          {onSetSensitivity && sensitivity !== undefined && (
+            <div>
+              <div className="flex justify-between font-title text-[10px] tracking-[0.2em]" style={{ color: "rgba(200,178,138,0.7)" }}>
+                <span>MOUSE SENS</span><span>{sensitivity.toFixed(4)}</span>
+              </div>
+              <input type="range" min={0.0005} max={0.006} step={0.0001} value={sensitivity} onChange={e=>onSetSensitivity(parseFloat(e.target.value))} className="w-full mt-1" />
+            </div>
+          )}
+          {onSetShake && shake !== undefined && (
+            <div>
+              <div className="flex justify-between font-title text-[10px] tracking-[0.2em]" style={{ color: "rgba(200,178,138,0.7)" }}>
+                <span>SHAKE</span><span>{shake.toFixed(1)}x</span>
+              </div>
+              <input type="range" min={0} max={2} step={0.1} value={shake} onChange={e=>onSetShake(parseFloat(e.target.value))} className="w-full mt-1" />
+            </div>
+          )}
+          {onSetGrain && grain !== undefined && (
+            <div className="flex items-center justify-between font-title text-[10px] tracking-[0.2em]" style={{ color: "rgba(200,178,138,0.7)" }}>
+              <span>FILM GRAIN</span>
+              <button onClick={()=>onSetGrain(!grain)} className="px-3 py-1 text-[10px]" style={{ border: "1px solid rgba(180,150,100,0.3)", background: grain ? "rgba(70,45,20,0.6)" : "rgba(18,14,10,0.6)", color: grain ? "#ffe9b0" : "rgba(200,178,138,0.5)" }}>
+                {grain ? "ON" : "OFF"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="text-[10px] italic" style={{ color: "rgba(190,170,140,0.4)" }}>
+        Honorable: Ultra Low disables shadows/mist/bloom for max FPS. X-High forces native DPR up to 2×. Lock-on respects walls — won't lock through. Drag right-mouse to look when not pointer-locked. Press B to bow — foes pause in respect. FOV 58° default, Sens 0.0022.
       </div>
     </div>
   );
 }
 
-// ------------------------------------------------------------------- Title
 export function TitleScreen({
   onStart,
   audioOn,
   onToggleAudio,
   quality,
   onSetQuality,
+  fov,
+  sensitivity,
+  grain,
+  shake,
+  onSetFov,
+  onSetSensitivity,
+  onSetGrain,
+  onSetShake,
+  onBenchmark,
 }: {
   onStart: () => void;
   audioOn: boolean;
   onToggleAudio: () => void;
   quality: QualityLevel;
   onSetQuality: (q: QualityLevel) => void;
+  fov: number;
+  sensitivity: number;
+  grain: boolean;
+  shake: number;
+  onSetFov: (v: number) => void;
+  onSetSensitivity: (v: number) => void;
+  onSetGrain: (b: boolean) => void;
+  onSetShake: (v: number) => void;
+  onBenchmark: () => void;
 }) {
   const [showControls, setShowControls] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -218,12 +299,7 @@ export function TitleScreen({
 
         {showControls && (
           <div
-            className="anim-fade-up mt-7 grid w-[min(92vw,760px)] grid-cols-1 gap-x-10 gap-y-[6px] p-6 sm:grid-cols-2"
-            style={{
-              background: "linear-gradient(180deg, rgba(12,10,9,0.86), rgba(6,5,5,0.9))",
-              border: "1px solid rgba(196,164,102,0.22)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.7), inset 0 0 40px rgba(0,0,0,0.6)",
-            }}
+            className="anim-fade-up mt-7 grid w-[min(92vw,760px)] grid-cols-1 gap-x-10 gap-y-[6px] p-6 sm:grid-cols-2 panel-clean"
           >
             {CONTROLS.map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-4 border-b border-dashed py-[3px]" style={{ borderColor: "rgba(180,150,100,0.13)" }}>
@@ -240,20 +316,19 @@ export function TitleScreen({
 
         {showSettings && (
           <div className="anim-fade-up mt-7 w-[min(92vw,860px)]" style={{ animationDelay: "0.1s" }}>
-            <QualitySelector current={quality} onSet={onSetQuality} />
+            <QualitySelector current={quality} onSet={onSetQuality} fov={fov} sensitivity={sensitivity} grain={grain} shake={shake} onSetFov={onSetFov} onSetSensitivity={onSetSensitivity} onSetGrain={onSetGrain} onSetShake={onSetShake} onBenchmark={onBenchmark} />
           </div>
         )}
 
         <div className="absolute bottom-5 left-0 right-0 flex justify-between px-6 text-center font-title text-[9px] tracking-[0.36em]" style={{ color: "rgba(180,158,120,0.3)" }}>
           <span>A REAL-TIME PROCEDURAL WORLD · WEBGL · NO ASSETS, ONLY MATH</span>
-          <span>{quality.toUpperCase()} · {QUALITY_PRESETS[quality].short} · {QUALITY_PRESETS[quality].pixelRatio} DPR</span>
+          <span>{quality.toUpperCase()} · {QUALITY_PRESETS[quality].short} · {QUALITY_PRESETS[quality].pixelRatio} DPR · HONORABLE</span>
         </div>
       </div>
     </div>
   );
 }
 
-// ------------------------------------------------------------------- Death
 export function DeathScreen() {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -272,14 +347,13 @@ export function DeathScreen() {
           YOU DIED
         </div>
         <div className="anim-fade-up mt-6 text-[13px] italic tracking-[0.3em]" style={{ color: "rgba(190,150,140,0.5)", animationDelay: "1.6s" }}>
-          the grace calls you back…
+          the grace calls you back… kneel with honor
         </div>
       </div>
     </div>
   );
 }
 
-// ----------------------------------------------------------------- Victory
 export function VictoryScreen({ runes, name, onContinue }: { runes: number; name: string; onContinue: () => void }) {
   const isFinal = name.toUpperCase().includes("HOLLOW") || name.toUpperCase().includes("ALDRIC");
   return (
@@ -301,21 +375,20 @@ export function VictoryScreen({ runes, name, onContinue }: { runes: number; name
         </div>
         <div className="anim-fade-up mt-8 text-[clamp(13px,1.1vw,17px)] italic" style={{ color: "rgba(206,188,158,0.6)", animationDelay: "1.4s" }}>
           {isFinal
-            ? "The flame is whole, and silent. The Ashveil is yours to wander, Ashbearer — scatter it, or keep it."
+            ? "The flame is whole, and silent. The Ashveil is yours to wander, Ashbearer — scatter it, or keep it. Honor guides you."
             : "The flame is yours. The Ashveil parts, and the Tree turns its light upon you."}
         </div>
         <div className="anim-fade-up mt-6 font-title text-[22px] tracking-[0.2em] gold-text" style={{ animationDelay: "1.8s" }}>
           {runes.toLocaleString()} RUNES
         </div>
         <div className="anim-fade-up mx-auto mt-8 w-[300px]" style={{ animationDelay: "2.2s" }}>
-          <MenuButton primary label={isFinal ? "WANDER THE ASHVEIL" : "WANDER ON"} onClick={onContinue} />
+          <MenuButton primary label={isFinal ? "WANDER WITH HONOR" : "WANDER ON"} onClick={onContinue} />
         </div>
       </div>
     </div>
   );
 }
 
-// ------------------------------------------------------------------- Pause
 export function PauseScreen({
   onResume,
   onQuit,
@@ -324,6 +397,15 @@ export function PauseScreen({
   runes,
   quality,
   onSetQuality,
+  fov,
+  sensitivity,
+  grain,
+  shake,
+  onSetFov,
+  onSetSensitivity,
+  onSetGrain,
+  onSetShake,
+  onBenchmark,
 }: {
   onResume: () => void;
   onQuit: () => void;
@@ -332,18 +414,27 @@ export function PauseScreen({
   runes: number;
   quality: QualityLevel;
   onSetQuality: (q: QualityLevel) => void;
+  fov: number;
+  sensitivity: number;
+  grain: boolean;
+  shake: number;
+  onSetFov: (v: number) => void;
+  onSetSensitivity: (v: number) => void;
+  onSetGrain: (b: boolean) => void;
+  onSetShake: (v: number) => void;
+  onBenchmark: () => void;
 }) {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[3px]" style={{ background: "rgba(3,3,5,0.7)" }}>
-      <div className="w-[min(92vw,860px)] max-h-[90vh] overflow-y-auto p-9 text-center" style={{ border: "1px solid rgba(196,164,102,0.2)", background: "linear-gradient(180deg, rgba(12,10,9,0.9), rgba(5,5,6,0.94))", boxShadow: "0 30px 90px rgba(0,0,0,0.8)" }}>
+      <div className="w-[min(92vw,860px)] max-h-[90vh] overflow-y-auto p-9 text-center panel-honorable">
         <div className="flex justify-center">
           <Ornament />
         </div>
         <div className="gold-text font-title mt-3 text-[38px] tracking-[0.4em]">PAUSED</div>
         <div className="mt-1 font-title text-[10px] tracking-[0.34em]" style={{ color: "rgba(200,176,134,0.45)" }}>
-          {runes.toLocaleString()} RUNES HELD · {quality.toUpperCase()} · TAB/T/V locks nearest even without mouse lock
+          {runes.toLocaleString()} RUNES HELD · {quality.toUpperCase()} · HONORABLE PAUSE · TAB/T/V locks nearest even without mouse lock
         </div>
 
         {!showSettings && (
@@ -361,11 +452,11 @@ export function PauseScreen({
           </div>
         )}
 
-        {showSettings && <QualitySelector current={quality} onSet={onSetQuality} />}
+        {showSettings && <QualitySelector current={quality} onSet={onSetQuality} fov={fov} sensitivity={sensitivity} grain={grain} shake={shake} onSetFov={onSetFov} onSetSensitivity={onSetSensitivity} onSetGrain={onSetGrain} onSetShake={onSetShake} onBenchmark={onBenchmark} />}
 
         <div className="mx-auto mt-7 w-[420px]">
           <MenuButton primary label="RETURN TO THE FIGHT" onClick={onResume} />
-          <MenuButton label={showSettings ? "HIDE SETTINGS" : `QUALITY · ${quality.toUpperCase()}`} onClick={() => setShowSettings((v) => !v)} />
+          <MenuButton label={showSettings ? "HIDE SETTINGS" : `QUALITY · ${quality.toUpperCase()} · HONOR`} onClick={() => setShowSettings((v) => !v)} />
           <MenuButton label={audioOn ? "SILENCE THE CHORUS" : "RESTORE THE CHORUS"} onClick={onToggleAudio} />
           <MenuButton label="ABANDON — TITLE SCREEN" onClick={onQuit} />
         </div>

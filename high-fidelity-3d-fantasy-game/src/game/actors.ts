@@ -772,6 +772,7 @@ export class NPC extends Actor {
   trail?: SwordTrail;
   spawnDelay = 0;
   lastStep = 0;
+  honorPaused = 0;
   /** Training effigy: never moves, never attacks, still fully damageable. */
   passive = false;
   tutorialTag = "";
@@ -885,10 +886,26 @@ export class NPC extends Actor {
   }
 
   update(ctx: GameCtx) {
-    if (this.dormant) return; // hidden bosses skip all updates
+    if (this.dormant) return;
     const dt = ctx.dt;
     this.stateTime += dt;
     this.moveCooldown = Math.max(0, this.moveCooldown - dt);
+    // honorable pause — foes respect bow/duel
+    if ((this as any).honorPaused > 0) {
+      (this as any).honorPaused -= dt;
+      this.vel.multiplyScalar(0.88);
+      if ((this as any).honorPaused <= 0) {
+        this.aggro = false;
+      } else {
+        // don't attack while honor paused
+        this.moveCooldown = Math.max(this.moveCooldown, 0.4);
+        this.pos.addScaledVector(this.vel, dt * 0.2);
+        this.groundStick(dt);
+        this.speedBlend *= 0.92;
+        poseRig(this.rig, { dt, time: ctx.time, speed: this.speedBlend * 0.3, state: "idle", phase: this.phase, combo: 0, hunched: this.kind === "wretch" });
+        return;
+      }
+    }
     this.applyFlash(dt);
 
     if (this.dead) {
