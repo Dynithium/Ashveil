@@ -96,6 +96,12 @@ canvas {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
+
+@keyframes sigPulse {
+  0%, 100% { opacity: 0.3; stroke-width: 0.8; }
+  50% { opacity: 1; stroke-width: 1.8; }
+}
+.sig-pulse { animation: sigPulse 2.3s ease-in-out infinite; }
 .anim-pulse-slow { animation: pulseSlow 2.6s ease-in-out infinite; }
 
 @keyframes shimmer {

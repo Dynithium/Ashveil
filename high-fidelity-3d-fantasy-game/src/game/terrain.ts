@@ -1,3 +1,4 @@
+import { VIOLET_MERE } from "./settlements";
 // ---------------------------------------------------------------------------
 // ASHVEIL — procedural terrain field
 // Deterministic noise + the single source of truth for ground height.
@@ -88,7 +89,18 @@ export const smoothstep = (e0: number, e1: number, x: number) => {
 };
 
 export const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
-export const lerpN = lerp;
+
+/** Lair plateaus — level ground for the eight guardian dungeons. */
+export const FLATTENS = [
+  { x: 170, z: -215, h: 12.6, r: 32 },  // The Iron Dunes — the Colossus Graveyard
+  { x: -185, z: 25, h: 6.35, r: 28 },   // The Sunken Bastion — the Drowned Keep
+  { x: -265, z: 55, h: -2.43, r: 30 },  // The Cinderwood — the Ashen Chapel
+  { x: -85, z: -175, h: 6.28, r: 30 },  // The Glass Crags — the Obsidian Ziggurat
+  { x: -120, z: -300, h: 4.94, r: 28 }, // The Slag Marshes — the Drowned Nave
+  { x: 190, z: 115, h: 10.66, r: 28 },  // The Whispering Spire — the Turbine Cathedral
+  { x: 178, z: -70, h: -15.01, r: 30 }, // The Forgotten Foundry — the Foundry Cathedral
+  { x: 0, z: 44, h: -4.5, r: 34 },      // The Ashen Cathedral — the Pale Nave
+];
 
 // --------------------------- world constants -------------------------------
 export const WORLD = {
@@ -150,6 +162,27 @@ export function terrainHeight(x: number, z: number): number {
   const cd = Math.hypot(x, z - 120);
   h = lerp(h, 9.8, smoothstep(46, 30, cd));
 
+  // Kingsfall moat — a carved channel fronted by the drawbridge
+  const moatWall = smoothstep(19, 14, Math.abs(x));
+  h -= smoothstep(4.6, 1.2, Math.abs(z - 90)) * moatWall * 3.1;
+
+  // The Violet Mere - a bioluminescent lake hollowed out of the borderlands
+  const dm = Math.hypot(x - VIOLET_MERE.x, z - VIOLET_MERE.z);
+  if (dm < VIOLET_MERE.r * 1.7) {
+    h = lerp(h, VIOLET_MERE.floor, smoothstep(VIOLET_MERE.r * 1.7, VIOLET_MERE.r * 0.7, dm));
+  }
+
+  // The eight guardian lairs — each sits on level ground so grand
+  // architecture can rise there (the Ashveil's great dungeons).
+  for (const f of FLATTENS) {
+    const d = Math.hypot(x - f.x, z - f.z);
+    h = lerp(h, f.h, smoothstep(f.r, f.r * 0.55, d));
+  }
+
+  // A small level clearing for Kinter's temporary Elderville opening set.
+  // Blend into the existing forest path outside the house.
+  h = lerp(h, 9.18, smoothstep(18, 10, Math.hypot(x - 180, z - 286)));
+
   return h;
 }
 
@@ -164,6 +197,11 @@ export interface Platform {
 }
 
 export const platforms: Platform[] = [];
+
+/** Clear world-owned walkable surfaces before rebuilding the procedural world. */
+export function clearPlatforms() {
+  platforms.length = 0;
+}
 
 export function addPlatform(p: Platform) {
   platforms.push(p);

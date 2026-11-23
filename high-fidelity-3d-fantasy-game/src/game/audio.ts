@@ -81,7 +81,7 @@ export class AudioEngine {
 
   resume() {
     this.init();
-    if (this.ctx?.state === "suspended") this.ctx.resume();
+    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {});
   }
 
   setEnabled(v: boolean) {
@@ -145,6 +145,12 @@ export class AudioEngine {
   private startMusic() {
     const step = () => {
       if (!this.ctx) return;
+      // Don't stack chords while the context is suspended (autoplay policy):
+      // everything scheduled at t≈0 would burst the moment resume lands.
+      if (this.ctx.state !== "running") {
+        this.musicTimer = window.setTimeout(step, 1000);
+        return;
+      }
       this.playChord(this.chords[this.chordIx % this.chords.length]);
       this.chordIx++;
       if (this.intensity > 0.5) this.playBossPulse();
@@ -512,6 +518,126 @@ export class AudioEngine {
       o.start(t);
       o.stop(t + 5.2);
     });
+  }
+
+  // ---------------------------- prologue voices ----------------------------
+  /** River / waterfall wash. intensity 0..1. */
+  water(intensity = 1) {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.Q.value = 0.35;
+    f.frequency.setValueAtTime(300, t);
+    f.frequency.linearRampToValueAtTime(900 + intensity * 900, t + 2.4);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.14 * intensity, t + 0.6);
+    g.gain.linearRampToValueAtTime(0.0001, t + 3.4);
+    src.connect(f).connect(g);
+    g.connect(this.sfxBus);
+    g.connect(this.reverbSend);
+    src.start(t);
+    src.stop(t + 3.6);
+  }
+
+  splash() {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.playbackRate.value = 0.9;
+    const f = ctx.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.setValueAtTime(2400, t);
+    f.frequency.exponentialRampToValueAtTime(300, t + 0.7);
+    const g = this.env(f, t, 0.006, 0.8, 0.5);
+    src.connect(f);
+    g.connect(this.sfxBus);
+    g.connect(this.reverbSend);
+    src.start(t);
+    src.stop(t + 1);
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(90, t);
+    o.frequency.exponentialRampToValueAtTime(34, t + 0.5);
+    const og = this.env(o, t, 0.004, 0.6, 0.45);
+    og.connect(this.sfxBus);
+    o.start(t);
+    o.stop(t + 0.8);
+  }
+
+  /** Lifesuit telemetry blip. ok=true is a clean note, false is a warning. */
+  suit(ok = true) {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const base = ok ? 660 : 300;
+    [0, 0.16].forEach((off, i) => {
+      const o = ctx.createOscillator();
+      o.type = "square";
+      o.frequency.value = base * (ok ? (i ? 1.5 : 1) : i ? 0.7 : 1);
+      const g = ctx.createGain();
+      const st = t + off;
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.linearRampToValueAtTime(0.05, st + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, st + 0.12);
+      o.connect(g);
+      g.connect(this.sfxBus);
+      o.start(st);
+      o.stop(st + 0.16);
+    });
+  }
+
+  /** Steel leaving a hand and settling into mud — the surrender. */
+  sheathe() {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.playbackRate.value = 0.7;
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.Q.value = 3.2;
+    f.frequency.setValueAtTime(2600, t);
+    f.frequency.exponentialRampToValueAtTime(900, t + 0.55);
+    const g = this.env(f, t, 0.02, 0.5, 0.22);
+    src.connect(f);
+    g.connect(this.sfxBus);
+    g.connect(this.reverbSend);
+    src.start(t);
+    src.stop(t + 0.7);
+  }
+
+  /** A long low wind swell for establishing shots. */
+  gust() {
+    if (!this.ctx || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.Q.value = 0.5;
+    f.frequency.setValueAtTime(220, t);
+    f.frequency.linearRampToValueAtTime(520, t + 2.2);
+    f.frequency.linearRampToValueAtTime(260, t + 4.4);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.11, t + 1.6);
+    g.gain.linearRampToValueAtTime(0.0001, t + 4.8);
+    src.connect(f).connect(g);
+    g.connect(this.musicBus);
+    g.connect(this.reverbSend);
+    src.start(t);
+    src.stop(t + 5);
   }
 
   dispose() {

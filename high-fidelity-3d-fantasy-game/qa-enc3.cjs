@@ -1,0 +1,11 @@
+const fs = require("fs");
+const p = "C:/Users/mmirz/OneDrive/Documents/GitHub/Ashveil/high-fidelity-3d-fantasy-game/src/game/engine.ts";
+const txt = fs.readFileSync(p, "utf8");
+const i = txt.indexOf("â€");
+console.log("index", i);
+const run = txt.slice(i, i + 6);
+console.log("run chars:", Array.from(run).map((c) => c.codePointAt(0).toString(16)).join(" "));
+const re = /[-ÿ][-ÿ‘’“”–—…†‡•…‰′″‹›€™∂∆∏∑−∕∙√∞∫≈≠≤≥⌐⌠⌡├┤┬┴┼─│├┤┬┴┼ -ÿ]*/g;
+let n = 0;
+const out = txt.replace(re, (m) => { n++; return m; });
+console.log("runs matched:", n);

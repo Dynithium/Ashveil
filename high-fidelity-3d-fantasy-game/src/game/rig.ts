@@ -4,7 +4,9 @@ import * as THREE from "three";
 // ASHVEIL — procedural humanoid rigs (no external models)
 // ---------------------------------------------------------------------------
 
-export type WeaponKind = "greatsword" | "claws" | "swordshield" | "flamebrand" | "none" | "twinblades" | "halberd";
+export type WeaponKind =
+  | "greatsword" | "claws" | "swordshield" | "flamebrand" | "none" | "twinblades" | "halberd"
+  | "longbow" | "breacher" | "pike" | "chakram" | "buckler";
 
 export interface RigOptions {
   scale?: number;
@@ -40,6 +42,7 @@ export interface Rig {
   cape?: THREE.Mesh;
   capeBase?: Float32Array;
   weapon?: THREE.Group;
+  shield?: THREE.Group;
   bladeLength: number;
   flashMats: THREE.MeshStandardMaterial[];
   glowMats: THREE.Material[];
@@ -223,6 +226,7 @@ export function buildRig(o: RigOptions): Rig {
 
   // ------------------------------ weapon -----------------------------------
   let weapon: THREE.Group | undefined;
+  let shield: THREE.Group | undefined;
   let bladeLength = 0;
 
   if (o.weapon === "greatsword" || o.weapon === "flamebrand") {
@@ -311,7 +315,7 @@ export function buildRig(o: RigOptions): Rig {
     R.hand.add(g);
     weapon = g;
 
-    const shield = new THREE.Group();
+    shield = new THREE.Group();
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * S, 0.42 * S, 0.07 * S, 6), metal);
     plate.rotation.x = Math.PI / 2;
     plate.castShadow = true;
@@ -395,6 +399,128 @@ export function buildRig(o: RigOptions): Rig {
     weapon = g;
     // left hand grips lower on the haft for a two-handed silhouette
     L.hand.position.set(0, -0.36 * S, 0.02 * S);
+  } else if (o.weapon === "longbow") {
+    // a pre-split Uokan alloy bow, strung with Raeku filament — held in the left fist
+    bladeLength = 1.35 * S;
+    const g = new THREE.Group();
+    const alloy = new THREE.MeshStandardMaterial({ color: 0x8fa8b8, metalness: 0.9, roughness: 0.3, emissive: 0x12301c, emissiveIntensity: 0.4, flatShading: true });
+    flashMats.push(alloy);
+    const limb = new THREE.Mesh(new THREE.TorusGeometry(0.72 * S, 0.045 * S, 6, 14, Math.PI * 1.15), alloy);
+    limb.rotation.z = -Math.PI * 0.075;
+    limb.castShadow = true;
+    g.add(limb);
+    const stringGeo = new THREE.CylinderGeometry(0.012 * S, 0.012 * S, 1.38 * S, 4);
+    const stringMat = new THREE.MeshBasicMaterial({ color: 0x8fffd4, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    glowMats.push(stringMat);
+    const string = new THREE.Mesh(stringGeo, stringMat);
+    string.rotation.z = Math.PI / 2;
+    g.add(string);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * S, 0.04 * S, 0.22 * S, 6), cloth);
+    grip.position.set(0.72 * S, 0, 0);
+    g.add(grip);
+    g.rotation.x = 1.35;
+    g.rotation.z = 0.12;
+    L.hand.add(g);
+    weapon = g;
+  } else if (o.weapon === "breacher") {
+    // a hydraulic siege fist stripped from a fallen Life Armor mech
+    bladeLength = 0.95 * S;
+    const g = new THREE.Group();
+    const shell = new THREE.MeshStandardMaterial({ color: 0x54442a, metalness: 0.85, roughness: 0.42, flatShading: true });
+    flashMats.push(shell);
+    const knuckle = new THREE.Mesh(new THREE.BoxGeometry(0.34 * S, 0.3 * S, 0.26 * S), shell);
+    knuckle.position.y = 0.18 * S;
+    knuckle.castShadow = true;
+    g.add(knuckle);
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * S, 0.11 * S, 0.42 * S, 8), new THREE.MeshStandardMaterial({ color: 0x8a8f98, metalness: 0.95, roughness: 0.25 }));
+    piston.position.y = -0.06 * S;
+    piston.castShadow = true;
+    g.add(piston);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.42 * S, 0.08 * S, 0.34 * S), shell);
+    plate.position.y = 0.36 * S;
+    g.add(plate);
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 * S, 0), emissiveMat);
+    core.position.set(0, 0.18 * S, 0.15 * S);
+    g.add(core);
+    g.rotation.x = 1.5;
+    R.hand.add(g);
+    weapon = g;
+  } else if (o.weapon === "pike") {
+    // a royal sentry's extendable lance, humming with a captive storm
+    bladeLength = 2.5 * S;
+    const g = new THREE.Group();
+    const len = bladeLength;
+    const shaftMat = new THREE.MeshStandardMaterial({ color: 0x3a3227, roughness: 0.7, metalness: 0.3, emissive: 0x0a2a3a, emissiveIntensity: 0.5 });
+    flashMats.push(shaftMat);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.032 * S, 0.042 * S, len, 6), shaftMat);
+    shaft.position.y = len / 2 - 0.3 * S;
+    shaft.castShadow = true;
+    g.add(shaft);
+    const spearMat = new THREE.MeshStandardMaterial({ color: 0xbfe0ee, metalness: 0.97, roughness: 0.15, emissive: 0x2a7a9a, emissiveIntensity: 1.1, flatShading: true });
+    flashMats.push(spearMat);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.075 * S, 0.6 * S, 6), spearMat);
+    tip.position.y = len + 0.02 * S;
+    tip.castShadow = true;
+    g.add(tip);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.09 * S, 0.025 * S, 5, 10), new THREE.MeshBasicMaterial({ color: 0x7ae0ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.position.y = len - 0.28 * S;
+    glowMats.push(ring.material as THREE.Material);
+    g.add(ring);
+    g.rotation.x = 1.42;
+    R.hand.add(g);
+    weapon = g;
+    L.hand.position.set(0, -0.34 * S, 0.02 * S);
+  } else if (o.weapon === "chakram") {
+    // a whisper of volcanic glass at the hip, and a disc in the hand
+    bladeLength = 0.55 * S;
+    const g = new THREE.Group();
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x1c1410, metalness: 0.6, roughness: 0.2, emissive: 0xff7a12, emissiveIntensity: 1.6, flatShading: true });
+    flashMats.push(glassMat);
+    const disc = new THREE.Mesh(new THREE.TorusGeometry(0.24 * S, 0.055 * S, 6, 14), glassMat);
+    disc.rotation.x = Math.PI / 2;
+    disc.castShadow = true;
+    g.add(disc);
+    const edge = new THREE.Mesh(new THREE.TorusGeometry(0.24 * S, 0.02 * S, 5, 14), new THREE.MeshBasicMaterial({ color: 0xffc26a, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+    edge.rotation.x = Math.PI / 2;
+    glowMats.push(edge.material as THREE.Material);
+    g.add(edge);
+    g.rotation.x = 1.66;
+    R.hand.add(g);
+    weapon = g;
+    // the sheathed twin orbits his waist
+    const waist = new THREE.Mesh(new THREE.TorusGeometry(0.21 * S, 0.04 * S, 5, 12), glassMat);
+    waist.rotation.x = Math.PI / 2;
+    waist.position.y = -0.02 * S;
+    hips.add(waist);
+  } else if (o.weapon === "buckler") {
+    // a scout's wrist-projector with a lion's heart — and a short blade to argue with
+    bladeLength = 0.8 * S;
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xc9d4de, metalness: 0.95, roughness: 0.22, flatShading: true });
+    flashMats.push(bladeMat);
+    const g = new THREE.Group();
+    const bladeGeo = new THREE.BoxGeometry(0.07 * S, bladeLength, 0.024 * S);
+    bladeGeo.translate(0, bladeLength / 2 + 0.1 * S, 0);
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.castShadow = true;
+    g.add(blade);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.2 * S, 0.045 * S, 0.05 * S), dark);
+    guard.position.y = 0.08 * S;
+    g.add(guard);
+    g.rotation.x = 1.62;
+    R.hand.add(g);
+    weapon = g;
+
+    shield = new THREE.Group();
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * S, 0.34 * S, 0.05 * S, 8), new THREE.MeshStandardMaterial({ color: 0x2e3b46, metalness: 0.9, roughness: 0.3, emissive: 0x1a4a5a, emissiveIntensity: 0.8, flatShading: true }));
+    plate.rotation.x = Math.PI / 2;
+    plate.castShadow = true;
+    shield.add(plate);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3 * S, 0.035 * S, 5, 12), new THREE.MeshBasicMaterial({ color: 0x6fe0ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glowMats.push(rim.material as THREE.Material);
+    shield.add(rim);
+    shield.position.set(0, -0.08 * S, 0.1 * S);
+    shield.rotation.x = -0.4;
+    L.hand.add(shield);
   }
 
   if (o.hunched) {
@@ -435,6 +561,7 @@ export function buildRig(o: RigOptions): Rig {
     cape,
     capeBase,
     weapon,
+    shield,
     bladeLength,
     flashMats,
     glowMats,
@@ -487,8 +614,6 @@ export function poseRig(rig: Rig, p: PoseInput) {
     const amp = 0.22 + p.speed * 0.75;
     hLX = sw * amp;
     hRX = -sw * amp;
-    kLX = Math.max(0, -sw * 0.5) * (0.5 + p.speed) - 0.08;
-    kRX = Math.max(0, sw * 0.5) * (0.5 + p.speed) - 0.08;
     kLX = -Math.abs(Math.min(0, sw)) * (0.9 + p.speed * 0.8) - 0.05;
     kRX = -Math.abs(Math.min(0, -sw)) * (0.9 + p.speed * 0.8) - 0.05;
     shLX = -sw * amp * 0.85;
@@ -630,7 +755,9 @@ export function poseRig(rig: Rig, p: PoseInput) {
     hRX = -0.45 * strike;
     kLX = -0.35 * strike;
   } else if (p.state === "roll") {
-    rootRotX = p.phase * Math.PI * 2;
+    // Forward pitch that rises and returns to upright — no net 360° spin to
+    // unwind when the roll ends.
+    rootRotX = -Math.sin(p.phase * Math.PI) * 1.15;
     const tuck = Math.sin(p.phase * Math.PI);
     hipsY = -0.4 * tuck;
     torsoX = 1.1 * tuck;
@@ -686,6 +813,16 @@ export function poseRig(rig: Rig, p: PoseInput) {
     hipsY = -0.1 * f;
     hLX = 0.25 * f;
     hRX = -0.2 * f;
+  } else if (p.state === "kneel") {
+    hipsY = -0.5;
+    torsoX = 0.28;
+    headX = -0.16;
+    shLX = -0.25;
+    shRX = -0.3;
+    hLX = -1.55;
+    hRX = -1.45;
+    kLX = -1.45;
+    kRX = -1.72;
   } else if (p.state === "stagger") {
     const f = Math.sin(p.phase * Math.PI * 0.9);
     torsoX = -0.9 * f;

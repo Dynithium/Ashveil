@@ -1,0 +1,13 @@
+const { execSync } = require("child_process");
+const fs = require("fs");
+const repo = "C:/Users/mmirz/OneDrive/Documents/GitHub/Ashveil";
+const rel = "high-fidelity-3d-fantasy-game/src/game/engine.ts";
+const head = execSync(`git -C "${repo}" show HEAD:${rel}`, { maxBuffer: 1 << 28 }).toString("utf8");
+const work = fs.readFileSync(`${repo}/${rel}`, "utf8");
+const count = (t) => (t.match(/â€/g) || []).length;
+console.log("HEAD mojibake:", count(head));
+console.log("WORK mojibake:", count(work));
+const i = work.indexOf("â€");
+console.log("sample work:", JSON.stringify(work.slice(i - 90, i + 90)));
+const j = head.indexOf("â€");
+console.log("sample head:", JSON.stringify(head.slice(j - 90, j + 90)));

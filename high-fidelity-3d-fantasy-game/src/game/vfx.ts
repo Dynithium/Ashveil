@@ -8,13 +8,15 @@ const P_VERT = /* glsl */ `
 attribute float aSize;
 attribute float aLife;
 attribute vec3 aColor;
+uniform float uPointScale;
+uniform float uPointMax;
 varying float vLife;
 varying vec3 vColor;
 void main(){
   vLife = aLife;
   vColor = aColor;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = aSize * (300.0 / max(-mv.z, 0.1));
+  gl_PointSize = clamp(aSize * (uPointScale / max(-mv.z, 0.5)), 1.0, uPointMax);
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -70,6 +72,7 @@ export class Particles {
     const mat = new THREE.ShaderMaterial({
       vertexShader: P_VERT,
       fragmentShader: P_FRAG,
+      uniforms: { uPointScale: { value: 160 }, uPointMax: { value: 48 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -208,9 +211,10 @@ export class SwordTrail {
     ((this.mesh.material as THREE.ShaderMaterial).uniforms.uColor.value as THREE.Color).set(c);
   }
 
-  push(base: THREE.Vector3, tip: THREE.Vector3, active: boolean) {
+  push(base: THREE.Vector3, tip: THREE.Vector3, active: boolean, dt = 1 / 60) {
     const wasActive = this.strength > 0;
-    this.strength = active ? 0.7 : Math.max(0, this.strength - 0.12);
+    // decay per second, not per frame (was 0.12/frame — frame-rate dependent)
+    this.strength = active ? 0.7 : Math.max(0, this.strength - dt * 7.2);
     if (!active && !wasActive) return;
 
     if (active) {
@@ -337,6 +341,7 @@ export class AmbientEmbers {
     const mat = new THREE.ShaderMaterial({
       vertexShader: P_VERT,
       fragmentShader: P_FRAG,
+      uniforms: { uPointScale: { value: 60 }, uPointMax: { value: 5 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,

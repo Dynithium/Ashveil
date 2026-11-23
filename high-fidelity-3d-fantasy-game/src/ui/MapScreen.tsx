@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { HudState } from "../game/engine";
 
-// World spans roughly [-205, 205] on both axes. Map to a 0..1 square.
-const WORLD_R = 205;
+// World spans roughly [-420, 420] on both axes (terrain.ts WORLD.radius). Map to a 0..1 square.
+const WORLD_R = 420;
 const toPct = (v: number) => ((v + WORLD_R) / (WORLD_R * 2)) * 100;
 
 export function MapScreen({
@@ -15,6 +15,9 @@ export function MapScreen({
   onTravel: (idx: number) => void;
 }) {
   const [hover, setHover] = useState<string | null>(null);
+  const tier = Math.min(4, Math.floor(s.shards / 2));
+  const capital = ["Guttering", "Gate district lit", "Courtyard restored", "Scouts mustering", "Capital shining"][tier];
+  const armor = ["Worn plate", "Gorget & bracers", "Reinforced plate", "Relay crown", "Full radiance"][tier];
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center" style={{ background: "rgba(3,3,5,0.82)", backdropFilter: "blur(4px)" }}>
@@ -29,7 +32,10 @@ export function MapScreen({
         }}
       >
         <div className="mb-3 flex items-center justify-between">
-          <div className="font-title text-[15px] tracking-[0.4em] gold-text">MAP OF THE ASHVEIL</div>
+          <div>
+            <div className="font-title text-[10px] tracking-[0.34em]" style={{ color: "rgba(214,188,140,0.55)" }}>THE MAP OF</div>
+            <div className="font-title text-[22px] leading-none tracking-[0.3em] gold-text">EIGHT</div>
+          </div>
           <button
             onClick={onClose}
             className="font-title text-[11px] tracking-[0.25em] transition-colors"
@@ -52,12 +58,24 @@ export function MapScreen({
             boxShadow: "inset 0 0 80px rgba(0,0,0,0.7)",
           }}
         >
-          {/* biome washes */}
-          <Wash x={-128} z={40} color="rgba(150,50,20,0.16)" label="THE CINDERWOOD" />
-          <Wash x={118} z={-30} color="rgba(120,170,210,0.16)" label="FROSTMOURN REACH" />
-          <Wash x={-60} z={-118} color="rgba(80,130,60,0.16)" label="THE MIREFEN" />
+          {/* before the Map of Eight: the chart is a blank wall of ash */}
+          {!s.map.beacon && (
+            <div className="pointer-events-none absolute left-1/2 top-[15%] z-10 -translate-x-1/2 text-center">
+              <div className="font-title text-[15px] tracking-[0.35em]" style={{ color: "rgba(226,196,140,0.8)", textShadow: "0 2px 8px #000" }}>THE CHART IS BLANK</div>
+              <div className="mt-1 text-[12.5px] italic" style={{ color: "rgba(206,188,158,0.7)", textShadow: "0 2px 6px #000" }}>Pip in the Sootfall watchtower can teach you to read the resonator before the Eight will show themselves.</div>
+            </div>
+          )}
+
+          {/* biome washes — the eight guardian regions */}
+          <Wash x={-260} z={60} color="rgba(150,50,20,0.16)" label="THE CINDERWOOD" />
+          <Wash x={-85} z={-175} color="rgba(160,130,220,0.13)" label="THE GLASS CRAGS" />
+          <Wash x={-120} z={-300} color="rgba(80,130,60,0.16)" label="THE SLAG MARSHES" />
+          <Wash x={170} z={-215} color="rgba(210,160,80,0.13)" label="THE IRON DUNES" small />
+          <Wash x={-185} z={25} color="rgba(140,160,180,0.13)" label="THE SUNKEN BASTION" small />
+          <Wash x={190} z={115} color="rgba(150,200,230,0.13)" label="THE WHISPERING SPIRE" small />
+          <Wash x={178} z={-70} color="rgba(230,140,60,0.13)" label="THE FORGOTTEN FOUNDRY" small />
           <Wash x={0} z={120} color="rgba(200,170,110,0.12)" label="KINGSFALL KEEP" small />
-          <Wash x={0} z={-18} color="rgba(180,60,30,0.18)" label="SUNKEN CATHEDRAL" small />
+          <Wash x={0} z={0} color="rgba(180,60,30,0.18)" label="THE BLACK CITADEL" small />
 
           {/* graces */}
           {s.map.graces.map((g) => (
@@ -78,12 +96,11 @@ export function MapScreen({
           ))}
 
           {/* villages */}
-          {s.map.villages.map((v) => (
-            <div
+          {s.map.villages.map((v) => (            <div
               key={v.name}
               className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${toPct(v.x)}%`, top: `${toPct(v.z)}%` }}
-              onMouseEnter={() => setHover(`${v.name} · rank ${v.level}${v.available ? " · upgrade ready" : ""}`)}
+              onMouseEnter={() => setHover(`${v.name} · ${v.standingLabel} ${v.standing}/100 · forge ${v.level}/3${v.nextCost !== null ? ` · next ${v.nextCost.toLocaleString()} runes${v.discounted ? " (discount)" : ""}` : " · fully upgraded"}${v.available ? " · ready" : ""}`)}
               onMouseLeave={() => setHover(null)}
             >
               <svg width="15" height="15" viewBox="0 0 15 15" style={{ filter: v.available ? "drop-shadow(0 0 6px rgba(255,200,120,0.9))" : "none" }}>
@@ -101,7 +118,8 @@ export function MapScreen({
               onMouseEnter={() => setHover(b.dead ? `${b.name} — slain` : b.name)}
               onMouseLeave={() => setHover(null)}
             >
-              <svg width="18" height="18" viewBox="0 0 18 18" style={{ filter: b.dead ? "none" : "drop-shadow(0 0 6px rgba(255,90,40,0.8))" }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" style={{ filter: b.dead ? "none" : "drop-shadow(0 0 6px rgba(255,90,40,0.8))", overflow: "visible" }}>
+                {!b.dead && <circle cx="9" cy="9" r="7.4" fill="none" stroke="rgba(255,214,140,0.9)" strokeWidth="1.1" strokeDasharray="3 2.6" className="sig-pulse" />}
                 <path d="M9 1 L17 9 L9 17 L1 9 Z" fill={b.main ? "#ff5a2a" : "#b98cff"} stroke="rgba(255,230,190,0.7)" strokeWidth="0.8" />
                 {!b.dead && <circle cx="9" cy="9" r="2.4" fill="rgba(10,6,6,0.85)" />}
               </svg>
@@ -109,6 +127,17 @@ export function MapScreen({
           ))}
 
           {/* objective marker */}
+          {s.map.questMarkers.map((quest) => (
+            <div key={quest.id} title={quest.name} aria-label={quest.name}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${toPct(quest.x)}%`, top: `${toPct(quest.z)}%`, zIndex: 2 }}
+              onMouseEnter={() => setHover(quest.name)} onMouseLeave={() => setHover(null)}>
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <circle cx="9" cy="9" r="7" fill="#173845" stroke="#9fe6ff" strokeWidth="1.5" />
+                <path d="M9 4 L11 9 L9 14 L7 9 Z" fill="#d4f6ff" />
+              </svg>
+            </div>
+          ))}
           {s.map.marker && (
             <div className="absolute -translate-x-1/2 -translate-y-1/2 anim-pulse-slow" style={{ left: `${toPct(s.map.marker.x)}%`, top: `${toPct(s.map.marker.z)}%` }}>
               <svg width="22" height="22" viewBox="0 0 22 22">
@@ -131,14 +160,20 @@ export function MapScreen({
         {/* --- legend / hover --- */}
         <div className="mt-3 flex items-center justify-between">
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px]" style={{ color: "rgba(198,182,156,0.62)" }}>
-            <Legend color="#ffd47a" shape="star" label="Grace (click to travel)" />
+            <Legend color="#ff5a2a" shape="kite" label="Guardian / the Warlord" />
             <Legend color="#ffd47a" shape="diamond" label="Village forge" />
-            <Legend color="#ff5a2a" shape="kite" label="Boss" />
+            <Legend color="#ffd47a" shape="star" label="Grace (click to travel)" />
             <Legend color="#aee1ff" shape="arrow" label="You" />
+            <Legend color="#9fe6ff" shape="diamond" label="Quest lead" />
           </div>
           <div className="font-title text-[11px] tracking-[0.2em]" style={{ color: "rgba(255,224,160,0.85)", minHeight: 16 }}>
             {hover ?? "Select a discovered Grace to travel"}
           </div>
+        </div>
+        <div className="mt-3 flex items-center justify-center gap-3 border-t pt-2 font-title text-[9px] tracking-[0.18em]" style={{ borderColor: "rgba(196,164,102,0.14)", color: "rgba(214,188,140,0.58)" }}>
+          <span>RELAY {s.shards}/8 · {capital}</span>
+          <span style={{ color: "rgba(196,164,102,0.25)" }}>◆</span>
+          <span>ALDRICH · {armor}</span>
         </div>
         <div className="mt-2 text-center font-title text-[9px] tracking-[0.3em]" style={{ color: "rgba(180,158,120,0.4)" }}>
           M or ESC to close

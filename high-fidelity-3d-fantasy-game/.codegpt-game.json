@@ -1,0 +1,8 @@
+{
+  "name": "ashveil",
+  "engine": "generic",
+  "launch": { "cmd": "node", "args": ["node_modules/vite/bin/vite.js", "preview", "--port", "4173", "--strictPort"] },
+  "log": { "stdout": true },
+  "ready": "Local:",
+  "sourceRoots": ["src"]
+}

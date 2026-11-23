@@ -1,18 +1,27 @@
 import { useMemo, useState } from "react";
+import { JOURNAL_ENTRIES } from "../game/journal";
+import { RELICS } from "../game/npcData";
 
 const CONTROLS: [string, string][] = [
   ["W A S D", "Move"],
   ["Mouse", "Look / Camera"],
   ["Shift", "Sprint"],
   ["Space", "Dodge Roll · i-frames"],
+  ["X", "Jump · hold to glide with Sky-Step"],
+  ["V", "Core Overdrive (Leviathan Shard)"],
   ["Left Click", "Light Attack (3-hit chain)"],
   ["E", "Heavy Attack · breaks poise"],
   ["Right Click (hold)", "Guard · tap to Parry"],
   ["Q", "Cast — Sundered Bolt"],
   ["R", "Sacred Flask (heal)"],
-  ["1 / 2 / 3", "Greatsword · Twin Blades · Halberd"],
+  ["1 / 2 / 3", "Second Blade · Twin Blades · Halberd"],
+  ["4 / 5", "Draw assigned relic 1 / 2"],
+  ["G", "Grapple-Line — aim at an anchor or enemy"],
+  ["C", "Ash Burst — blind & stagger your foes"],
+  ["B", "Replace the filter using one spare canister"],
   ["Tab / Middle Click", "Lock On / Off"],
   ["M", "World Map · Fast Travel"],
+  ["N", "Travel Journal & Quests"],
   ["F", "Talk · Rest at Grace · Read Stones"],
   ["Esc", "Pause"],
 ];
@@ -98,17 +107,203 @@ function MenuButton({ label, onClick, primary }: { label: string; onClick: () =>
   );
 }
 
+// ---------------------------------------------------------------- Journal
+export interface JournalQuest {
+  id: string;
+  name: string;
+  hint: string;
+  giver: string;
+  state: "active" | "done" | "available";
+  progress: string;
+}
+
+type JournalTab = "writings" | "quests";
+
+export function JournalScreen({
+  allQuests,
+  journalUnlocked,
+  onClose,
+}: {
+  allQuests: JournalQuest[];
+  journalUnlocked: string[];
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<JournalTab>("writings");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const unlocked = useMemo(() => new Set(journalUnlocked), [journalUnlocked]);
+  const entries = useMemo(() => [...JOURNAL_ENTRIES].sort((a, b) => a.order - b.order), []);
+  const readCount = entries.filter((e) => unlocked.has(e.id)).length;
+  const active = allQuests.filter((q) => q.state === "active");
+  const done = allQuests.filter((q) => q.state === "done");
+  const selected = entries.find((e) => e.id === selectedId && unlocked.has(e.id))
+    ?? [...entries].reverse().find((e) => unlocked.has(e.id))
+    ?? null;
+
+  return (
+    <div className="absolute inset-0 z-40 flex items-center justify-center" style={{ background: "rgba(3,3,5,0.82)", backdropFilter: "blur(4px)" }}>
+      <div
+        className="relative flex w-[min(94vw,780px)] flex-col"
+        style={{
+          maxHeight: "82vh",
+          padding: 22,
+          border: "1px solid rgba(196,164,102,0.28)",
+          background: "linear-gradient(180deg, rgba(14,11,9,0.96), rgba(6,5,6,0.97))",
+          boxShadow: "0 30px 90px rgba(0,0,0,0.85), inset 0 0 60px rgba(0,0,0,0.6)",
+        }}
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <div>
+            <div className="font-title text-[10px] tracking-[0.35em]" style={{ color: "rgba(214,188,140,0.55)" }}>THE LEDGER OF</div>
+            <div className="font-title text-[24px] leading-none tracking-[0.3em] gold-text">KINTER</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="font-title text-[11px] tracking-[0.25em] transition-colors"
+            style={{ color: "rgba(214,188,140,0.7)" }}
+          >
+            CLOSE ✕
+          </button>
+        </div>
+
+        <div className="mb-3 flex gap-2">
+          {([
+            ["writings", `WRITINGS — ${readCount}/${entries.length}`],
+            ["quests", `SIDE QUESTS — ${done.length}/${allQuests.length}`],
+          ] as [JournalTab, string][]).map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="font-title text-[11px] tracking-[0.22em] transition-all duration-300"
+              style={{
+                padding: "6px 14px",
+                border: `1px solid ${tab === t ? "rgba(226,196,140,0.55)" : "rgba(180,150,100,0.18)"}`,
+                color: tab === t ? "#eedfae" : "rgba(206,188,158,0.5)",
+                background: tab === t ? "rgba(226,196,140,0.08)" : "transparent",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "writings" ? (
+          <div className="flex gap-4 overflow-hidden" style={{ minHeight: 0 }}>
+            <div className="scrollbar-thin w-[38%] shrink-0 overflow-y-auto pr-2" style={{ maxHeight: "58vh" }}>
+              {entries.map((e) => {
+                const has = unlocked.has(e.id);
+                const isSel = selected?.id === e.id;
+                return (
+                  <button
+                    key={e.id}
+                    disabled={!has}
+                    onClick={() => setSelectedId(e.id)}
+                    className="mb-1 block w-full border-b border-dashed pb-[6px] pt-[6px] text-left transition-colors"
+                    style={{
+                      borderColor: "rgba(180,150,100,0.14)",
+                      background: isSel ? "rgba(226,196,140,0.06)" : "transparent",
+                      cursor: has ? "pointer" : "default",
+                    }}
+                  >
+                    <div
+                      className="font-title text-[11px] tracking-[0.18em]"
+                      style={{ color: has ? (isSel ? "#eedfae" : "rgba(238,223,174,0.75)") : "rgba(150,140,120,0.3)" }}
+                    >
+                      {has ? e.title.toUpperCase() : "· · · · ·"}
+                    </div>
+                    <div className="mt-[1px] text-[10px] italic" style={{ color: "rgba(190,174,146,0.35)" }}>
+                      {has ? "Kinter's hand" : "a page not yet written"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="scrollbar-thin min-w-0 flex-1 overflow-y-auto" style={{ maxHeight: "58vh" }}>
+              {selected ? (
+                <>
+                  <div className="font-title text-[15px] tracking-[0.24em]" style={{ color: "#eedfae" }}>{selected.title.toUpperCase()}</div>
+                  <div className="mt-[2px] mb-3 font-title text-[8px] tracking-[0.32em]" style={{ color: "rgba(159,216,255,0.45)" }}>FROM THE TRAVEL JOURNAL</div>
+                  {selected.text.map((p, i) => (
+                    <p key={i} className="mb-3 text-[14px] leading-relaxed" style={{ color: "rgba(224,210,184,0.88)" }}>{p}</p>
+                  ))}
+                </>
+              ) : (
+                <div className="py-10 text-center text-[15px] italic" style={{ color: "rgba(206,188,158,0.55)" }}>
+                  The journal is empty.
+                  <div className="mt-2 text-[13px] not-italic" style={{ color: "rgba(190,174,146,0.4)" }}>
+                    It fills only when the road teaches you something.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="scrollbar-thin overflow-y-auto pr-2" style={{ maxHeight: "58vh" }}>
+            {active.length === 0 && (
+              <div className="py-10 text-center text-[15px] italic" style={{ color: "rgba(206,188,158,0.55)" }}>
+                No open business — the Ashveil has nothing to ask of you yet.
+                <div className="mt-2 text-[13px] not-italic" style={{ color: "rgba(190,174,146,0.4)" }}>
+                  Speak with the folk of the settlements. Every one of them is carrying something.
+                </div>
+              </div>
+            )}
+            {active.map((q) => (
+              <div
+                key={q.id}
+                className="mb-2 flex items-start justify-between gap-6 border-b border-dashed pb-2"
+                style={{ borderColor: "rgba(180,150,100,0.14)" }}
+              >
+                <div>
+                  <div className="font-title text-[13px] tracking-[0.2em]" style={{ color: "#eedfae" }}>{q.name}</div>
+                  <div className="mt-[2px] text-[13px] italic" style={{ color: "rgba(206,188,158,0.62)" }}>{q.hint}</div>
+                  <div className="mt-1 font-title text-[9px] tracking-[0.24em]" style={{ color: "rgba(159,216,255,0.5)" }}>{q.giver}</div>
+                </div>
+                <div className="font-title text-[12px] tracking-[0.2em]" style={{ color: "rgba(174,225,255,0.8)" }}>{q.progress}</div>
+              </div>
+            ))}
+            {done.length > 0 && (
+              <>
+                <div className="mt-4 mb-1 font-title text-[9px] tracking-[0.35em]" style={{ color: "rgba(214,188,140,0.4)" }}>SETTLED — {done.length} / {allQuests.length}</div>
+                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                  {done.map((q) => (
+                    <div key={q.id} className="font-title text-[10px] tracking-[0.18em]" style={{ color: "rgba(170,160,140,0.45)" }}>
+                      ✓ {q.name}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <div className="mt-2 text-center font-title text-[9px] tracking-[0.3em]" style={{ color: "rgba(180,158,120,0.4)" }}>
+          N or ESC to close
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------- Title
 export function TitleScreen({
   onStart,
+  onContinue,
+  onAbandon,
+  hasSave,
+  saveError,
+  onOpenAgent,
   audioOn,
   onToggleAudio,
 }: {
   onStart: () => void;
+  onContinue: () => void;
+  onAbandon: () => void;
+  hasSave: boolean;
+  saveError: string | null;
+  onOpenAgent: () => void;
   audioOn: boolean;
   onToggleAudio: () => void;
 }) {
   const [showControls, setShowControls] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"new" | "erase" | null>(null);
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -137,15 +332,39 @@ export function TitleScreen({
           className="anim-fade-up mt-8 max-w-[620px] text-center text-[clamp(13px,1.15vw,17px)] italic leading-relaxed"
           style={{ color: "rgba(206,188,158,0.62)", animationDelay: "0.5s" }}
         >
-          “The Tree burns still, though its roots have rotted through the world.
-          Rise, Ashbearer. Seek King Aldric in Kingsfall Keep — he alone knows where the stolen flame sleeps.”
+          “Ten years before Minslaire's journey, Kinter leaves Elderville to seek life beyond Gretriyon.
+          The dark forest ends at a river — and a country no map remembers.”
         </p>
 
         <div className="anim-fade-up mt-10 w-[min(88vw,360px)]" style={{ animationDelay: "0.85s" }}>
-          <MenuButton primary label="BEGIN THE PILGRIMAGE" onClick={onStart} />
+          {saveError && <p role="alert" className="mb-3 text-center text-sm text-red-200">{saveError}</p>}
+          {hasSave && <MenuButton primary label="CONTINUE THE WATCH" onClick={onContinue} />}
+          <MenuButton primary={!hasSave} label="BEGIN THE LONG FALL" onClick={() => hasSave ? setConfirmAction("new") : onStart()} />
+          <MenuButton label="AI BENCHMARK · F4" onClick={onOpenAgent} />
           <MenuButton label={showControls ? "CLOSE CODEX" : "CODEX OF ARMS"} onClick={() => setShowControls((v) => !v)} />
-          <MenuButton label={audioOn ? "SILENCE THE CHORUS" : "RESTORE THE CHORUS"} onClick={onToggleAudio} />
+          <MenuButton label={audioOn ? "SOUND: ON" : "SOUND: OFF"} onClick={onToggleAudio} />
+          {hasSave && (
+            <button
+              onClick={() => setConfirmAction("erase")}
+              className="group mt-2 block w-full py-[6px] font-title transition-all duration-300"
+              style={{ fontSize: 10, letterSpacing: "0.3em", color: "rgba(200,120,90,0.45)" }}
+            >
+              <span className="border-b border-dashed" style={{ borderColor: "rgba(200,120,90,0.35)" }}>
+                ABANDON THE VIGIL — ERASE THE LEDGER
+              </span>
+            </button>
+          )}
         </div>
+
+        {confirmAction && (
+          <div role="dialog" aria-modal="true" aria-label="Confirm saved game removal" className="absolute inset-0 z-20 flex items-center justify-center bg-black/90 px-6">
+            <div className="w-full max-w-sm border border-amber-200/30 bg-stone-950 p-6 text-center">
+              <p className="mb-5 text-amber-100">{confirmAction === "new" ? "Starting a new game will erase your saved campaign." : "Erase your saved campaign? This cannot be undone."}</p>
+              <MenuButton primary label={confirmAction === "new" ? "ERASE SAVE AND BEGIN" : "ERASE SAVE"} onClick={() => { if (confirmAction === "new") onStart(); else { onAbandon(); setConfirmAction(null); } }} />
+              <MenuButton label="CANCEL" onClick={() => setConfirmAction(null)} />
+            </div>
+          </div>
+        )}
 
         {showControls && (
           <div
@@ -204,7 +423,16 @@ export function DeathScreen() {
 }
 
 // ----------------------------------------------------------------- Victory
-export function VictoryScreen({ runes, onContinue }: { runes: number; onContinue: () => void }) {
+export function VictoryScreen({
+  runes,
+  shards,
+  onContinue,
+}: {
+  runes: number;
+  shards: number;
+  onContinue: () => void;
+}) {
+  const radiance = shards >= 8;
   return (
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 46%, rgba(90,52,10,0.42) 0%, rgba(4,3,3,0.92) 68%)" }} />
@@ -214,22 +442,28 @@ export function VictoryScreen({ runes, onContinue }: { runes: number; onContinue
           <Ornament />
         </div>
         <div
-          className="anim-fade-up font-title mt-5 text-[clamp(26px,5.2vw,74px)] tracking-[0.28em] gold-text glow-gold"
+          className="anim-fade-up mt-2 font-title text-[10px] tracking-[0.55em]"
+          style={{ animationDelay: "0.25s", color: radiance ? "rgba(190,230,255,0.85)" : "rgba(226,150,110,0.8)" }}
+        >
+          {radiance ? "THE RADIANCE OF UOKA — ALL EIGHT SHARDS" : `THE HOLLOW CHARGE — ${shards} OF 8 SHARDS`}
+        </div>
+        <div
+          className="anim-fade-up font-title mt-4 text-[clamp(26px,5.2vw,74px)] tracking-[0.28em] gold-text glow-gold"
           style={{ animationDelay: "0.3s" }}
         >
-          GREAT ENEMY FELLED
+          MALENKAR FALLS
         </div>
         <div className="anim-fade-up mt-4 font-title text-[clamp(11px,1.5vw,18px)] tracking-[0.5em]" style={{ color: "rgba(226,196,150,0.7)", animationDelay: "0.9s" }}>
-          MALENKAR, THE SUNDERED FLAME
+          KINTER OF ELDERVILLE — KING OF UOKA
         </div>
         <div className="anim-fade-up mt-8 text-[clamp(13px,1.1vw,17px)] italic" style={{ color: "rgba(206,188,158,0.6)", animationDelay: "1.4s" }}>
-          The flame is yours. The Ashveil parts, and the Tree turns its light upon you.
+          Ten years later, Minslaire takes up the First Blade and enters the forest to find his father.
         </div>
         <div className="anim-fade-up mt-6 font-title text-[22px] tracking-[0.2em] gold-text" style={{ animationDelay: "1.8s" }}>
           {runes.toLocaleString()} RUNES
         </div>
         <div className="anim-fade-up mx-auto mt-8 w-[300px]" style={{ animationDelay: "2.2s" }}>
-          <MenuButton primary label="WANDER ON" onClick={onContinue} />
+          <MenuButton primary label="RETURN TO BEFORE THE CITADEL" onClick={onContinue} />
         </div>
       </div>
     </div>
@@ -240,16 +474,23 @@ export function VictoryScreen({ runes, onContinue }: { runes: number; onContinue
 export function PauseScreen({
   onResume,
   onQuit,
+  onOpenAgent,
   audioOn,
   onToggleAudio,
   runes,
+  relicLoadout,
+  onAssignRelic,
 }: {
   onResume: () => void;
   onQuit: () => void;
+  onOpenAgent: () => void;
   audioOn: boolean;
   onToggleAudio: () => void;
   runes: number;
+  relicLoadout: { owned: string[]; slots: [string | null, string | null] };
+  onAssignRelic: (slot: 0 | 1, id: string | null) => void;
 }) {
+  const [showEquipment, setShowEquipment] = useState(false);
   return (
     <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[3px]" style={{ background: "rgba(3,3,5,0.7)" }}>
       <div className="w-[min(92vw,720px)] p-9 text-center" style={{ border: "1px solid rgba(196,164,102,0.2)", background: "linear-gradient(180deg, rgba(12,10,9,0.9), rgba(5,5,6,0.94))", boxShadow: "0 30px 90px rgba(0,0,0,0.8)" }}>
@@ -261,7 +502,7 @@ export function PauseScreen({
           {runes.toLocaleString()} RUNES HELD
         </div>
 
-        <div className="mx-auto mt-7 grid max-w-[560px] grid-cols-1 gap-x-8 gap-y-[3px] sm:grid-cols-2">
+        {!showEquipment ? <div className="mx-auto mt-7 grid max-w-[560px] grid-cols-1 gap-x-8 gap-y-[3px] sm:grid-cols-2">
           {CONTROLS.map(([k, v]) => (
             <div key={k} className="flex items-center justify-between gap-3 border-b border-dashed py-[3px]" style={{ borderColor: "rgba(180,150,100,0.12)" }}>
               <span className="font-title text-[10px] tracking-[0.18em]" style={{ color: "rgba(236,212,164,0.85)" }}>
@@ -272,11 +513,29 @@ export function PauseScreen({
               </span>
             </div>
           ))}
-        </div>
+        </div> : (
+          <div className="mx-auto mt-7 max-w-[560px] text-left" aria-label="Relic equipment">
+            <p className="mb-4 text-center text-sm" style={{ color: "rgba(226,210,180,0.8)" }}>The Second Blade is always available with 1. Assign up to two collected relics to 4 and 5.</p>
+            {([0, 1] as const).map((slot) => {
+              const equipped = RELICS.find((item) => item.id === relicLoadout.slots[slot]);
+              return <label key={slot} className="mb-4 block text-sm" style={{ color: "#ead8b1" }}>
+                <span className="font-title tracking-[0.16em]">RELIC SLOT {slot + 1} · KEY {slot + 4}</span>
+                <select aria-label={`Relic slot ${slot + 1}`} className="mt-2 block w-full border border-amber-200/30 bg-stone-950 p-2 text-sm text-amber-50" value={relicLoadout.slots[slot] ?? ""} onChange={(event) => onAssignRelic(slot, event.target.value || null)}>
+                  <option value="">Empty</option>
+                  {RELICS.filter((item) => relicLoadout.owned.includes(item.id)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+                {equipped && <span className="mt-1 block text-xs italic" style={{ color: "rgba(198,182,156,0.7)" }}>{equipped.blurb}</span>}
+              </label>;
+            })}
+            {relicLoadout.owned.length === 0 && <p className="text-center text-sm italic" style={{ color: "rgba(198,182,156,0.6)" }}>Find a relic in the Ashveil to fill a slot.</p>}
+          </div>
+        )}
 
         <div className="mx-auto mt-7 w-[320px]">
           <MenuButton primary label="RETURN TO THE FIGHT" onClick={onResume} />
-          <MenuButton label={audioOn ? "SILENCE THE CHORUS" : "RESTORE THE CHORUS"} onClick={onToggleAudio} />
+          <MenuButton label={showEquipment ? "BACK TO CONTROLS" : "EQUIPMENT"} onClick={() => setShowEquipment((value) => !value)} />
+          <MenuButton label="AI BENCHMARK · F4" onClick={onOpenAgent} />
+          <MenuButton label={audioOn ? "SOUND: ON" : "SOUND: OFF"} onClick={onToggleAudio} />
           <MenuButton label="ABANDON — TITLE SCREEN" onClick={onQuit} />
         </div>
       </div>

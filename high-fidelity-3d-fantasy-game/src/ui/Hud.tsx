@@ -1,11 +1,29 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { HudState } from "../game/engine";
 
 const WEAPON_LABEL: Record<string, string> = {
-  greatsword: "GREATSWORD",
+  greatsword: "SECOND BLADE",
   twinblades: "TWIN BLADES",
   halberd: "HALBERD",
+  longbow: "RAEKU LONGBOW",
+  breacher: "BREACHER GAUNTLET",
+  pike: "VOLTAIC PIKE",
+  chakram: "CINDER CHAKRAM",
+  buckler: "AEGIS BUCKLER",
 };
+const RELIC_WEAPONS = new Set(["longbow", "breacher", "pike", "chakram", "buckler"]);
+
+/** Kinter's awakened powers — keyed to the guardian that yields them. */
+const POWER_LIST: { id: string; label: string }[] = [
+  { id: "colossus", label: "Shatter Strike — heavy blows ruin armor" },
+  { id: "captain", label: "Aegis Counter — a perfect parry unmakes the attacker" },
+  { id: "stalker", label: "Afterimage Dash — dodging leaves a decoy" },
+  { id: "warden", label: "Luminous Arc — the bolt fires a piercing crescent" },
+  { id: "leviathan", label: "Core Overdrive — V boosts speed for 15 seconds" },
+  { id: "sentinel", label: "Sky-Step — SPACE in air; hold X to glide" },
+  { id: "forgemaster", label: "Mag-Grapple — G strips a shield in front of you" },
+  { id: "herald", label: "Raeku Awakening — every strike carries the cathedral's light" },
+];
 
 // ----------------------------------------------------------------- Stat bar
 function Bar({
@@ -30,10 +48,10 @@ function Bar({
   const t = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    if (!delay) { setGhost(pct); return; }
-    if (pct > ghost) { setGhost(pct); return; }
     window.clearTimeout(t.current);
+    if (!delay || pct > ghost) { setGhost(pct); return; }
     t.current = window.setTimeout(() => setGhost(pct), 420);
+    return () => window.clearTimeout(t.current);
   }, [pct, ghost, delay]);
 
   return (
@@ -68,13 +86,15 @@ function Bar({
 
 // ------------------------------------------------------------------- Flask
 function Flask({ filled }: { filled: boolean }) {
+  // unique gradient id — multiple flasks share the document's id namespace
+  const gradId = useId().replace(/:/g, "fg");
   return (
     <svg width="21" height="30" viewBox="0 0 21 30" style={{ filter: filled ? "drop-shadow(0 0 6px rgba(255,190,90,0.65))" : "none" }}>
       <path d="M7 2 h7 v5 l4 8 v11 a3 3 0 0 1 -3 3 h-9 a3 3 0 0 1 -3 -3 v-11 l4 -8 z"
-        fill={filled ? "url(#fg)" : "rgba(20,18,15,0.85)"} stroke="rgba(212,178,110,0.85)" strokeWidth="1.1" />
+        fill={filled ? `url(#${gradId})` : "rgba(20,18,15,0.85)"} stroke="rgba(212,178,110,0.85)" strokeWidth="1.1" />
       <rect x="6.4" y="0.6" width="8.2" height="3" rx="1" fill="#463a24" stroke="rgba(212,178,110,0.8)" strokeWidth="0.8" />
       <defs>
-        <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#ffe6ad" />
           <stop offset="45%" stopColor="#ffb257" />
           <stop offset="100%" stopColor="#a2521a" />
@@ -84,8 +104,10 @@ function Flask({ filled }: { filled: boolean }) {
   );
 }
 
-const POPUP_STYLE: Record<string, { color: string; size: number; weight: number; shadow: string }> = {
-  dmg: { color: "#f4ead2", size: 21, weight: 600, shadow: "0 2px 6px #000" },
+/** ?perf=1 — a quiet frame-time readout for on-device measurement. */
+const PERF_ON = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("perf");
+
+const POPUP_STYLE: Record<string, { color: string; size: number; weight: number; shadow: string }> = {  dmg: { color: "#f4ead2", size: 21, weight: 600, shadow: "0 2px 6px #000" },
   crit: { color: "#ffd47a", size: 33, weight: 800, shadow: "0 0 18px rgba(255,180,60,0.9), 0 2px 6px #000" },
   magic: { color: "#a5dcff", size: 24, weight: 700, shadow: "0 0 16px rgba(110,190,255,0.8), 0 2px 6px #000" },
   playerhurt: { color: "#ff7264", size: 24, weight: 700, shadow: "0 0 14px rgba(200,40,30,0.8), 0 2px 6px #000" },
@@ -96,7 +118,7 @@ const POPUP_STYLE: Record<string, { color: string; size: number; weight: number;
 };
 
 function MiniMap({ s }: { s: HudState }) {
-  const R = 205;
+  const R = 420; // terrain.ts WORLD.radius — was 205, clipping far graces off the dial
   const cx = 74;
   const cy = 74;
   const sc = 60 / R;
@@ -104,7 +126,7 @@ function MiniMap({ s }: { s: HudState }) {
   const py = cy + s.map.player.z * sc;
   const playerDir = `rotate(${(s.map.player.yaw * 180) / Math.PI} ${px} ${py})`;
   return (
-    <div className="absolute right-7 top-[54px]">
+    <div className="absolute right-7 top-[92px]">
       <svg width="148" height="148" viewBox="0 0 148 148" style={{ filter: "drop-shadow(0 12px 28px rgba(0,0,0,0.65))" }}>
         <defs>
           <radialGradient id="mapbg" cx="50%" cy="46%" r="58%">
@@ -134,14 +156,14 @@ function MiniMap({ s }: { s: HudState }) {
             </g>
           ))}
 
-          {s.map.villages.map((v) => (
+          {s.map.beacon && s.map.villages.map((v) => (
             <g key={v.name} transform={`translate(${cx + v.x * sc} ${cy + v.z * sc})`}>
               <rect x="-4" y="-4" width="8" height="8" fill={v.available ? "#ffd47a" : "rgba(170,140,95,0.78)"} transform="rotate(45)" />
               <circle cx="0" cy="0" r="1.5" fill="rgba(10,8,6,0.9)" />
             </g>
           ))}
 
-          {s.map.bosses.map((b) => (
+          {s.map.beacon && s.map.bosses.map((b) => (
             <g key={b.name} transform={`translate(${cx + b.x * sc} ${cy + b.z * sc})`} opacity={b.dead ? 0.28 : 1}>
               <path d="M0 -6 L6 0 L0 6 L-6 0 Z" fill={b.main ? "#ff6a2a" : "#b98cff"} stroke="rgba(255,230,190,0.7)" strokeWidth="0.7" />
             </g>
@@ -168,6 +190,9 @@ export function Hud({ s }: { s: HudState }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 select-none" style={{ fontFamily: '"Cormorant Garamond", serif' }}>
+      {s.filter.hazard && (s.filter.stage === "critical" || s.filter.stage === "exhausted") && (
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 45%, rgba(92,56,25,0.4) 100%)" }} />
+      )}
       {/* ---------- damage numbers ---------- */}
       {s.popups.map((p) => {
         const st = POPUP_STYLE[p.kind] ?? POPUP_STYLE.dmg;
@@ -226,9 +251,38 @@ export function Hud({ s }: { s: HudState }) {
         </div>
       </div>
 
+      {/* ---------- shards of light + awakened powers ---------- */}
+      {s.shards > 0 && (
+        <div className="absolute left-6 top-[172px]">
+          <div className="flex items-center gap-[6px]">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <svg key={i} width="13" height="13" viewBox="0 0 14 14" style={{ filter: i < s.shards ? "drop-shadow(0 0 6px rgba(255,220,150,0.95))" : "none" }}>
+                <path d="M7 0 L14 7 L7 14 L0 7 Z"
+                  fill={i < s.shards ? "#ffd98a" : "rgba(90,76,52,0.5)"}
+                  stroke="rgba(226,196,140,0.6)" strokeWidth="0.6" />
+              </svg>
+            ))}
+            <span className="font-title ml-1 text-[11px] tracking-[0.22em]" style={{ color: "rgba(232,206,150,0.85)", textShadow: "0 2px 6px #000" }}>
+              {s.shards}/8
+            </span>
+          </div>
+          {/* The awakened powers — each lights when its guardian falls */}
+          <div className="mt-[5px] flex flex-col gap-[1px]">
+            {POWER_LIST.map((p) => (
+              <div
+                key={p.id}
+                className="font-title text-[9px] tracking-[0.18em]"
+                style={{ color: s.powers.includes(p.id) ? "rgba(255,214,140,0.78)" : "rgba(120,104,80,0.4)", textShadow: "0 1px 4px #000" }}
+              >
+                {s.powers.includes(p.id) ? "◆" : "◇"} {p.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ---------- objective tracker ---------- */}
-      <div className="absolute left-6 top-[104px]">
-        <div className="flex items-center gap-2">
+      <div className="absolute left-6 top-[104px] max-w-[46vw]">        <div className="flex items-center gap-2">
           <svg width="11" height="11" viewBox="0 0 12 12" style={{ filter: "drop-shadow(0 0 6px rgba(255,214,140,0.8))" }}>
             <path d="M6 0 L12 6 L6 12 L0 6 Z" fill="rgba(255,220,150,0.9)" />
           </svg>
@@ -239,6 +293,21 @@ export function Hud({ s }: { s: HudState }) {
         {s.hint && (
           <div className="ml-[19px] mt-[3px] text-[12.5px] italic" style={{ color: "rgba(190,174,146,0.5)", textShadow: "0 2px 6px #000" }}>
             {s.hint}
+          </div>
+        )}
+        {s.quests.length > 0 && (
+          <div className="ml-[4px] mt-[6px] flex flex-col gap-[2px]">
+            {s.quests.slice(0, 4).map((q) => (
+              <div
+                key={q.id}
+                className="flex items-baseline gap-2 font-title text-[9px] tracking-[0.16em]"
+                style={{ color: "rgba(188,214,232,0.65)", textShadow: "0 1px 4px #000" }}
+              >
+                <span style={{ color: "rgba(140,214,255,0.75)" }}>◆</span>
+                <span className="uppercase">{q.name}</span>
+                <span style={{ color: "rgba(188,214,232,0.4)" }}>{q.progress}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -261,7 +330,7 @@ export function Hud({ s }: { s: HudState }) {
         <>
           <div className="absolute inset-x-0 bottom-0 h-[42%]" style={{ background: "linear-gradient(180deg, transparent, rgba(2,2,4,0.88))" }} />
           <div className="anim-fade-up absolute bottom-[7%] left-1/2 w-[min(88vw,860px)] -translate-x-1/2 text-center" key={s.dialogue.idx}>
-            <div className="font-title mb-3 text-[13px] tracking-[0.5em] gold-text glow-gold">{s.dialogue.speaker}</div>
+            <div className="font-title mb-3 text-[13px] tracking-[0.5em] gold-text glow-gold">{s.dialogue.speakers?.[s.dialogue.idx] ?? s.dialogue.speaker}</div>
             <div
               className="px-8 text-[clamp(17px,1.6vw,23px)] italic leading-relaxed"
               style={{ color: "rgba(238,226,200,0.94)", textShadow: "0 2px 10px #000" }}
@@ -276,19 +345,91 @@ export function Hud({ s }: { s: HudState }) {
         </>
       )}
 
-      {/* ---------- flasks ---------- */}
+      {/* ---------- flasks + the frontier belt ---------- */}
       <div className="absolute bottom-7 left-7 flex items-end gap-4">
-        <div className="flex items-end gap-[5px]">
-          {Array.from({ length: s.maxFlasks }).map((_, i) => (
-            <Flask key={i} filled={i < s.flasks} />
-          ))}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-end gap-[5px]">
+            {Array.from({ length: s.maxFlasks }).map((_, i) => (
+              <Flask key={i} filled={i < s.flasks} />
+            ))}
+          </div>
+          {/* ash burst canisters + grapple line */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-[3px]" title="Filter Canisters — C: Ash Burst">
+              {Array.from({ length: s.maxAshBursts }).map((_, i) => (
+                <svg key={i} width="12" height="16" viewBox="0 0 12 16" style={{ filter: i < s.ashBursts ? "drop-shadow(0 0 4px rgba(255,150,60,0.7))" : "none" }}>
+                  <rect x="2" y="3.5" width="8" height="10.5" rx="1.6" fill={i < s.ashBursts ? "#c46a2a" : "rgba(30,26,22,0.8)"} stroke="rgba(226,170,110,0.75)" strokeWidth="0.9" />
+                  <rect x="3.8" y="0.6" width="4.4" height="3.4" rx="0.8" fill="#54401e" stroke="rgba(226,196,140,0.6)" strokeWidth="0.7" />
+                </svg>
+              ))}
+              <span className="font-title ml-1 text-[9px] tracking-[0.24em]" style={{ color: "rgba(226,170,110,0.55)" }}>C</span>
+            </div>
+            {s.grappleKnown && (
+              <div className="flex items-center gap-1" title="Grapple-Line — G">
+                <svg width="15" height="15" viewBox="0 0 16 16" style={{ filter: "drop-shadow(0 0 4px rgba(150,220,255,0.6))" }}>
+                  <path d="M2 14 L7 9 M7 9 C7 6 9 4 12 3 M7 9 L9.5 11.5 M7 9 L4.5 6.5" stroke="#9fd8ff" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+                </svg>
+                <span className="font-title text-[9px] tracking-[0.24em]" style={{ color: "rgba(159,216,255,0.6)" }}>G</span>
+              </div>
+            )}
+            {s.blessing && (
+              <div title="The Sanctuary's Blessing — +25 Vigor">
+                <svg width="14" height="14" viewBox="0 0 14 14" style={{ filter: "drop-shadow(0 0 5px rgba(255,230,150,0.75))" }}>
+                  <path d="M7 1 L9 5.5 L13.5 7 L9 8.5 L7 13 L5 8.5 L0.5 7 L5 5.5 Z" fill="#ffe896" />
+                </svg>
+              </div>
+            )}
+          </div>
         </div>
         <div className="mb-1 font-title text-[10px] tracking-[0.28em]" style={{ color: "rgba(214,182,124,0.5)" }}>
           R · FLASK
         </div>
       </div>
 
+      {/* ---------- relic heat ---------- */}
+      {s.powers.includes("leviathan") && (
+        <div className="absolute bottom-[150px] left-7 font-title text-[10px] tracking-[0.2em]" style={{ color: "rgba(255,205,145,0.85)" }}>
+          {s.overdrive > 0 ? `CORE OVERDRIVE · ${Math.ceil(s.overdrive)}s` : s.overdriveCooldown > 0 ? `OVERDRIVE READY IN ${Math.ceil(s.overdriveCooldown)}s` : "V · CORE OVERDRIVE"}
+        </div>
+      )}
+      {RELIC_WEAPONS.has(s.weapon) && (
+        <div className="absolute bottom-[118px] left-7 w-[190px]">
+          <div className="mb-[2px] flex items-center justify-between">
+            <span className="font-title text-[9px] tracking-[0.26em]" style={{ color: s.overheating ? "rgba(255,140,80,0.9)" : "rgba(226,182,124,0.55)" }}>
+              {s.overheating ? "SUIT OVERHEATED" : "SUIT HEAT"}
+            </span>
+            <span className="font-title text-[9px]" style={{ color: "rgba(226,182,124,0.45)" }}>{Math.round(s.relicHeat)}%</span>
+          </div>
+          <div className="h-[5px] overflow-hidden rounded-sm" style={{ background: "rgba(24,20,16,0.85)", border: "1px solid rgba(0,0,0,0.7)" }}>
+            <div
+              className="h-full"
+              style={{
+                width: `${Math.min(100, s.relicHeat)}%`,
+                background: s.overheating ? "linear-gradient(90deg,#ff5a1a,#ffb03a)" : "linear-gradient(90deg,#8a4a1a,#e08a2a)",
+                boxShadow: s.overheating ? "0 0 8px rgba(255,90,26,0.8)" : "none",
+                transition: "width 120ms linear",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ---------- runes ---------- */}
+      <div className="absolute bottom-[94px] right-8 w-[190px]" aria-label={`Filter ${Math.ceil(s.filter.condition)} percent${s.filter.hazard ? `, ${s.filter.hazard}` : ", clean air"}`}>
+        <div className="mb-1 flex justify-between gap-2 font-title text-[9px] tracking-[0.16em]" style={{ color: s.filter.stage === "exhausted" ? "#ff9b84" : s.filter.stage === "critical" ? "#ffc47a" : "#c9e9ed", textShadow: "0 2px 6px #000" }}>
+          <span>{s.filter.hazard ? s.filter.hazard.toUpperCase() : "CLEAN AIR"}</span>
+          <span>FILTER {Math.ceil(s.filter.condition)}%</span>
+        </div>
+        <div className="h-[6px] overflow-hidden rounded-sm" style={{ background: "rgba(12,16,18,0.9)", border: "1px solid rgba(210,230,230,0.45)" }}>
+          <div className="h-full" style={{ width: `${s.filter.condition}%`, background: s.filter.stage === "exhausted" ? "#e96050" : s.filter.stage === "critical" ? "#ffab55" : s.filter.stage === "worn" ? "#f0d16d" : "#8fdde9" }} />
+        </div>
+        {(s.filter.stage === "critical" || s.filter.stage === "exhausted") && <div className="mt-1 text-right font-title text-[9px] tracking-[0.12em]" style={{ color: "#ffe4b5", textShadow: "0 2px 6px #000" }}>B · REPLACE FILTER ({s.ashBursts} SPARES)</div>}
+      </div>
+      {s.grappleTarget && !s.dialogue && (
+        <div className="absolute bottom-16 right-8 font-title text-[10px] tracking-[0.2em]" style={{ color: "rgba(159,225,255,0.85)", textShadow: "0 2px 6px #000" }}>
+          G · {s.grappleTarget}
+        </div>
+      )}
       <div className="absolute bottom-7 right-8 flex items-center gap-3">
         <svg width="20" height="20" viewBox="0 0 20 20" style={{ filter: "drop-shadow(0 0 8px rgba(255,214,140,0.8))" }}>
           <path d="M10 1 L13 7 L19 10 L13 13 L10 19 L7 13 L1 10 L7 7 Z" fill="rgba(255,226,168,0.92)" />
@@ -298,6 +439,13 @@ export function Hud({ s }: { s: HudState }) {
       {s.bloodstain > 0 && (
         <div className="absolute bottom-[74px] right-8 font-title text-[11px] tracking-[0.22em]" style={{ color: "rgba(150,200,240,0.75)" }}>
           {s.bloodstain.toLocaleString()} RUNES LOST
+        </div>
+      )}
+
+      {/* ---------- perf readout (?perf=1) ---------- */}
+      {PERF_ON && s.perf && (
+        <div className="absolute bottom-[118px] right-8 font-mono text-[10px] tracking-[0.14em]" style={{ color: "rgba(174,225,255,0.72)", textShadow: "0 1px 4px #000" }}>
+          AVG {s.perf.avg.toFixed(1)} · P95 {s.perf.p95.toFixed(1)} · WORST {s.perf.worst.toFixed(1)} ms
         </div>
       )}
 
@@ -312,11 +460,14 @@ export function Hud({ s }: { s: HudState }) {
         <div className="mt-[2px] font-title text-[9px] tracking-[0.26em]" style={{ color: "rgba(226,196,140,0.4)" }}>
           M — MAP &amp; TRAVEL
         </div>
+        <div className="mt-[2px] font-title text-[9px] tracking-[0.26em]" style={{ color: "rgba(159,216,255,0.38)" }}>
+          N — JOURNAL
+        </div>
       </div>
 
       <MiniMap s={s} />
 
-      <div className="absolute right-8 top-[204px] text-right font-title text-[9px] tracking-[0.18em]" style={{ color: "rgba(226,196,140,0.48)", textShadow: "0 2px 6px #000" }}>
+      <div className="absolute right-8 top-[248px] text-right font-title text-[9px] tracking-[0.18em]" style={{ color: "rgba(226,196,140,0.48)", textShadow: "0 2px 6px #000" }}>
         BLADE +{s.upgrades.blade} · VIGOR +{s.upgrades.vigor} · ARCANE +{s.upgrades.arcane}
       </div>
 
@@ -333,6 +484,11 @@ export function Hud({ s }: { s: HudState }) {
       {/* ---------- boss bar ---------- */}
       {s.boss && (
         <div className="anim-boss-bar absolute bottom-[46px] left-1/2 w-[min(62vw,880px)] -translate-x-1/2 text-center">
+          {s.boss.warning && (
+            <div className="mb-2 font-title text-[12px] tracking-[0.24em]" style={{ color: "#fff2c5", textShadow: "0 2px 8px #000, 0 0 12px #bb5828" }}>
+              {s.boss.warning.label} · {s.boss.warning.remaining.toFixed(1)}s
+            </div>
+          )}
           <div
             className="mb-[7px] font-title text-[15px] tracking-[0.42em]"
             style={{ color: "#e9d5a6", textShadow: "0 0 22px rgba(255,150,60,0.55), 0 2px 8px #000" }}
